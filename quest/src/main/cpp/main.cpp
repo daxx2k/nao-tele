@@ -952,7 +952,6 @@ void main(){
         std::string poseMessage=preparation.value("message",std::string());
         bool poseFailure=poseMessage.find("Preparation failed:")==0;
         bool poseFeedback=preparation.value("busy",false)||poseFailure||poseMessage.find("Posture cancelled:")==0;
-        if(poseFailure&&(poseMessage.find("Motors too hot:")!=std::string::npos||poseMessage.find("Motor thermal protection active:")!=std::string::npos))poseMessage="Pose blocked: native motor protection / cool down";
         const std::string actionStatus=network->status();
         if(actionStatus.find("changing NAO posture")!=std::string::npos){poseMessage="Pose refused: press STOP first";poseFeedback=poseFailure=true;}
         if(!poseFeedback)poseMessage=fresh&&t.value("walking_ready",false)?"Walking ready / speed 50%":"Walking paused / speed 50%";

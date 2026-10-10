@@ -9,7 +9,7 @@ from unittest.mock import Mock,patch
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('telenao',ROOT/'nao/bridge/telenao.py')
 tp=importlib.util.module_from_spec(spec);spec.loader.exec_module(tp)
-from nao_profile import validate_robot, check_posture_temperature
+from nao_profile import validate_robot
 
 class Future:
     def __init__(self,value=None,finished=True):self.result=value;self.finished=finished
@@ -220,18 +220,19 @@ class NaoTests(unittest.TestCase):
         r.motion.setStiffnesses.return_value=Future();r.posture.goToPosture.return_value=Future(False)
         svc._prepare_posture('Sit')
         self.assertIn('Preparation failed',svc.state.prepare_message);self.assertFalse(svc.state.armed)
-    def test_hot_motor_blocks_native_posture_before_stiffness_or_wake(self):
-        svc=self.service();r=svc.state.robot=self.robot()
-        alarms=[0]*25;alarms[21]=1
-        r.session.service.return_value.getListData.return_value=Future(alarms)
-        svc._prepare_posture('Stand')
-        self.assertIn('Motor thermal protection active',svc.state.prepare_message)
-        self.assertIn('status 1',svc.state.prepare_message)
-        r.motion.wakeUp.assert_not_called();r.motion.setStiffnesses.assert_not_called()
-        r.posture.goToPosture.assert_not_called()
-    def test_missing_thermal_status_blocks_posture(self):
-        memory=Mock();memory.getListData.return_value=Future([0]*24+[None])
-        with self.assertRaises(RuntimeError):check_posture_temperature(memory)
+    def test_postures_do_not_add_a_thermal_veto(self):
+        for value in (1,2,3,None):
+            svc=self.service();r=svc.state.robot=self.robot()
+            r.session.service.return_value.getListData.return_value=Future([value]*25)
+            r.life.getState.return_value=Future('disabled')
+            r.motion.setStiffnesses.return_value=Future()
+            r.posture.goToPosture.return_value=Future(True)
+            r.posture.getPosture.return_value=Future('Sit')
+            svc._prepare_posture('Sit')
+            r.posture.goToPosture.assert_called_once_with('Sit',.5,_async=True)
+            r.session.service.return_value.getListData.assert_not_called()
+            self.assertEqual(svc.state.prepare_message,'Posture Sit ready / press START')
+            self.assertFalse(svc.state.armed)
     def test_start_does_not_add_a_thermal_rejection(self):
         r=self.robot();r.session.service.return_value.getListData.return_value=Future([1]+[0]*24)
         r.arm()

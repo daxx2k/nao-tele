@@ -1,6 +1,6 @@
 # TeleNao validation history
 
-Current release: 0.1.12-nao-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. NAO v4 H25 / NAOqi 2.1 has live validation; v5/v6 H25 are enabled, with physical validation pending.
+Current release: 0.1.13-nao-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. NAO v4 H25 / NAOqi 2.1 has live validation; v5/v6 H25 are enabled, with physical validation pending.
 
 Derived from the nao branch, with separate Android identity and private settings.
 
@@ -240,3 +240,7 @@ Updated the existing Quest installation in place: saved connection and encrypted
 An operator reported posture buttons appeared to do nothing. Robot logs recorded repeated application thermal refusals for hip/knee/ankle joints; after reboot the currently queried affected sensors reported normal status. Motion now shows posture preparation, cancellation and failure messages, with an explicit thermal-block summary and a STOP-first refusal. Control logs also include refused posture commands. Native posture dispatch and thermal checks are unchanged. No automated posture movement was requested in this investigation.
 
 Thermal refusal diagnostics now include the native status per affected joint rather than labelling every nonzero state generically as too hot. Per Aldebaran, temperature is a current-based estimate; status 1 begins stiffness reduction, status 2 denotes stronger reduction and status 3 disables motor stiffness. There is no guessed Celsius threshold or override of native protection.
+
+## TeleNao 0.1.13
+
+Removed the application-level posture temperature veto at the operator request. START, recovery and presets do not reject requests based on temperature readings or status. Temperature telemetry stays visible; native NAOqi torque reduction, motor shutdown and posture failure responses remain intact. Tests verify that presets dispatch with reported thermal statuses 1/2/3 or unavailable telemetry, while native failure and cancellation still leave control disarmed. No firmware protection setting was changed.

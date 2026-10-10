@@ -6,11 +6,11 @@ Standalone NAO app with Android application ID `it.telenao.quest`, private setti
 
 ## Download
 
-Experimental release **0.1.12-nao-test**. Use with an attentive operator and space around the robot.
+Experimental release **0.1.13-nao-test**. Use with an attentive operator and space around the robot.
 
 | Package | Download |
 |---|---|
-| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.12-nao-test/TeleNao-Quest.apk) |
+| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.13-nao-test/TeleNao-Quest.apk) |
 | APK, installer and instructions | [Installation bundle](https://github.com/daxx2k/nao-tele/releases) |
 | Source bundle and checksums | [Release assets](https://github.com/daxx2k/nao-tele/releases) |
 
@@ -43,7 +43,7 @@ Motion includes a saved **Response: Smooth / Balanced / Quick** setting. It chan
 
 All joystick axes are capped at 50% normalized input; translation diagonals share that cap, with a 6 cm maximum forward-step setting. These limits do not guarantee actual physical speed or step length. Lowered standing height prevents walking until height is restored.
 
-Control, video and motion use separate connections. Brief command interruptions may recover an already armed session only with fresh tracking, centred sticks and a standing robot. Explicit STOP, tracking loss and full reconnection require START again. Firmware protections remain active.
+Control, video and motion use separate connections. Brief command interruptions may recover an already armed session only with fresh tracking, centred sticks and a standing robot. Explicit STOP, tracking loss and full reconnection require START again. Temperature telemetry remains visible. TeleNao adds no temperature-based veto to START or posture presets; native NAOqi motor protections remain active.
 
 ## Setup and build
 

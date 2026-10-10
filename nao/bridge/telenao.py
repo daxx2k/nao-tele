@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from woz import WoZ
 from base_heading import BaseHeading
 from torso_assist import TorsoAssist
-from nao_profile import validate_robot, LOWER_JOINTS, HEAD_PITCH_LIMITS, POSTURE_SPEED, check_posture_temperature
+from nao_profile import validate_robot, LOWER_JOINTS, HEAD_PITCH_LIMITS, POSTURE_SPEED
 from official_animations import CATALOG as OFFICIAL_ANIMATIONS, PACKAGE_VERSION
 
 try:
@@ -902,7 +902,6 @@ class Service(object):
         state=self.state;robot=state.robot
         try:
             if not robot.simulate:
-                check_posture_temperature(robot.session.service('ALMemory'))
                 operations=[]
                 if robot.life.getState(_async=True).value(2000)!='disabled':
                     operations.append(lambda:robot.life.setState('disabled',_async=True))
