@@ -28,19 +28,21 @@ public class LauncherActivity extends Activity {
         ui=new StudioStyle(this);ui.window(this);ink=ui.ink;muted=ui.muted;accent=StudioStyle.CONNECTION;
         voiceProbe=new NaturalVoice(this);
         LinearLayout root=ui.column();root.setPadding(ui.dp(16),ui.dp(10),ui.dp(16),ui.dp(10));root.setBackgroundColor(ui.background);
-        LinearLayout heading=ui.row();heading.setGravity(android.view.Gravity.CENTER_VERTICAL);heading.setPadding(ui.dp(10),ui.dp(6),ui.dp(10),ui.dp(6));heading.setBackground(ui.surface(ui.surfaceColor,22));ImageView mark=new ImageView(this);mark.setImageResource(R.drawable.ic_telenao);heading.addView(mark,new LinearLayout.LayoutParams(ui.dp(32),ui.dp(32)));LinearLayout titles=ui.column();titles.setPadding(ui.dp(16),0,0,0);titles.addView(label("TeleNao "+it.telenao.ui.VersionInfo.label(this),30,ink));titles.addView(label("Connection settings",16,muted));heading.addView(titles,new LinearLayout.LayoutParams(0,-2,1));root.addView(heading);
+        LinearLayout heading=ui.row();heading.setGravity(android.view.Gravity.CENTER_VERTICAL);heading.setPadding(ui.dp(10),ui.dp(6),ui.dp(10),ui.dp(6));heading.setBackground(ui.surface(ui.surfaceColor,22));ImageView mark=new ImageView(this);mark.setImageResource(R.drawable.ic_telenao);heading.addView(mark,new LinearLayout.LayoutParams(ui.dp(32),ui.dp(32)));LinearLayout titles=ui.column();titles.setPadding(ui.dp(16),0,0,0);titles.addView(label("TeleNao",30,ink));titles.addView(label(it.telenao.ui.VersionInfo.label(this),12,muted));heading.addView(titles,new LinearLayout.LayoutParams(0,-2,1));root.addView(heading);
         
-        LinearLayout body=ui.row();body.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams bodyBounds=new LinearLayout.LayoutParams(-1,0,1);bodyBounds.setMargins(0,ui.dp(8),0,ui.dp(8));root.addView(body,bodyBounds);
-        LinearLayout card=ui.card();card.setPadding(ui.dp(12),ui.dp(10),ui.dp(12),ui.dp(10));card.addView(ui.text("ROBOT",12,ink,true));
-        LinearLayout actions=ui.card();actions.setPadding(ui.dp(12),ui.dp(10),ui.dp(12),ui.dp(10));actions.addView(ui.text("CONNECTION",12,ink,true));
-        LinearLayout.LayoutParams leftBounds=new LinearLayout.LayoutParams(0,-2,1);leftBounds.setMargins(0,0,ui.dp(6),0);body.addView(card,leftBounds);
-        LinearLayout.LayoutParams rightBounds=new LinearLayout.LayoutParams(0,-2,1);rightBounds.setMargins(ui.dp(6),0,0,0);body.addView(actions,rightBounds);
+        LinearLayout body=ui.column();
+        LinearLayout.LayoutParams bodyBounds=new LinearLayout.LayoutParams(-1,-2);bodyBounds.setMargins(0,ui.dp(8),0,0);root.addView(body,bodyBounds);
+        LinearLayout card=ui.card();card.setPadding(ui.dp(12),ui.dp(6),ui.dp(12),ui.dp(10));body.addView(card);
+        LinearLayout actions=ui.column();body.addView(actions);
         EditText host=field(card,"Robot address",prefs.getString("host",""),false);
         EditText token=new EditText(this);token.setText(prefs.getString("token",""));
-        EditText sshUser=field(card,"Account",NaoCredentials.user(this,prefs.getString("host","")),false);
-        EditText sshPassword=field(card,"Password",NaoCredentials.password(this,prefs.getString("host","")),true);
-        TextView status=label("Connect to NAO, then open VR.",14,muted);status.setMaxLines(3);status.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout credentials=ui.row();card.addView(credentials);
+        LinearLayout account=ui.column(),password=ui.column();
+        LinearLayout.LayoutParams accountBounds=new LinearLayout.LayoutParams(0,-2,1);accountBounds.setMargins(0,0,ui.dp(6),0);credentials.addView(account,accountBounds);
+        LinearLayout.LayoutParams passwordBounds=new LinearLayout.LayoutParams(0,-2,1);passwordBounds.setMargins(ui.dp(6),0,0,0);credentials.addView(password,passwordBounds);
+        EditText sshUser=field(account,"Account",NaoCredentials.user(this,prefs.getString("host","")),false);
+        EditText sshPassword=field(password,"Password",NaoCredentials.password(this,prefs.getString("host","")),true);
+        ConnectionForm.Status status=new ConnectionForm.Status(this,ui);status.setText("Connect to NAO, then open VR.");
         Button connect=ui.button("Connect",true);actions.addView(connect,ConnectionForm.buttonSpace(ui));
         connect.setOnClickListener(v->{String h=host.getText().toString().trim(),u=sshUser.getText().toString().trim(),p=sshPassword.getText().toString();
             if(!ConnectionStore.validHost(h)||u.isEmpty()||p.isEmpty()){status.setText("Enter NAO's head IPv4 address and SSH credentials.");return;}
@@ -71,7 +73,8 @@ public class LauncherActivity extends Activity {
             if(!diagnosticStarted&&getIntent().getBooleanExtra("voice_self_test",false)&&(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0){diagnosticStarted=true;voiceProbe.speak("Hello, I am NAO. How can I help you today?","en-GB");final long deadline=android.os.SystemClock.elapsedRealtime()+30000;
                 voiceHandler.postDelayed(new Runnable(){public void run(){if(isFinishing()||isDestroyed())return;byte[] pcm=voiceProbe.take();if(pcm!=null){try(java.io.FileOutputStream out=openFileOutput("voice-self-test.pcm",MODE_PRIVATE)){out.write(pcm);android.util.Log.i("TeleNao","Cori self-test PASS: PCM16 16000 Hz mono, bytes="+pcm.length);}catch(Exception e){android.util.Log.e("TeleNao","Voice self-test output failed",e);}return;}if(android.os.SystemClock.elapsedRealtime()<deadline)voiceHandler.postDelayed(this,100);else android.util.Log.e("TeleNao","Cori self-test failed: "+voiceProbe.status());}},100);
             }}},300);
-        Button find=ui.button("Find NAO",false);actions.addView(find,ConnectionForm.buttonSpace(ui));
+        LinearLayout secondary=ui.row();actions.addView(secondary);
+        Button find=ui.button("Find NAO",false);secondary.addView(find,ConnectionForm.halfButtonSpace(ui, false));
         find.setOnClickListener(v->{find.setEnabled(false);status.setText("Searching for TeleNao on this network...");new Thread(()->{
             try{java.util.List<NaoDiscovery.Robot> robots=NaoDiscovery.find(ConnectionStore.savedPairings(prefs));runOnUiThread(()->{if(isFinishing())return;find.setEnabled(true);
                 if(robots.isEmpty()){status.setText("No TeleNao found. Start the robot service and check Wi-Fi. You can also enter its head address.");return;}
@@ -80,7 +83,7 @@ public class LauncherActivity extends Activity {
                 new android.app.AlertDialog.Builder(this).setTitle("Choose NAO").setItems(names,(d,i)->{host.setText(robots.get(i).host);token.setText(ConnectionStore.pairingFor(prefs,robots.get(i).host));sshUser.setText(NaoCredentials.user(this,robots.get(i).host));sshPassword.setText(NaoCredentials.password(this,robots.get(i).host));status.setText("NAO selected. Press CONNECT to start the head service.");}).show();
             });}catch(Exception e){runOnUiThread(()->{if(!isFinishing()){find.setEnabled(true);status.setText("Network search unavailable. Enter the robot head address.");}});}
         },"nao-discovery").start();});
-        Button test=ui.button("Check connection",false);actions.addView(test,ConnectionForm.buttonSpace(ui));
+        Button test=ui.button("Check connection",false);secondary.addView(test,ConnectionForm.halfButtonSpace(ui, true));
         test.setOnClickListener(v->{String h=host.getText().toString().trim(),t=token.getText().toString().trim();
             if(!ConnectionStore.validHost(h)||t.length()<12){status.setText("Press CONNECT first to install or start the service.");return;}
             test.setEnabled(false);status.setText("Checking...");new Thread(()->{
@@ -93,8 +96,13 @@ public class LauncherActivity extends Activity {
                 final String result=message;runOnUiThread(()->{if(!isFinishing()){status.setText(result);test.setEnabled(true);}});
             },"connection-check").start();
         });
-        LinearLayout.LayoutParams statusBounds=new LinearLayout.LayoutParams(-1,ui.dp(52));statusBounds.setMargins(0,ui.dp(8),0,0);actions.addView(status,statusBounds);
-        actions.addView(voiceInfo,new LinearLayout.LayoutParams(-1,ui.dp(20)));
+        LinearLayout log=ui.card();log.setPadding(ui.dp(12),ui.dp(8),ui.dp(12),ui.dp(8));
+        LinearLayout.LayoutParams logBounds=new LinearLayout.LayoutParams(-1,0,1);logBounds.setMargins(0,ui.dp(8),0,ui.dp(6));root.addView(log,logBounds);
+        LinearLayout logHeading=ui.row();logHeading.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        logHeading.addView(ui.text("CONNECTION STATUS",11,muted,true),new LinearLayout.LayoutParams(0,-2,1));
+        Button details=ui.button("Log",false);details.setTextSize(12);details.setMinHeight(0);details.setPadding(0,0,0,0);logHeading.addView(details,new LinearLayout.LayoutParams(ui.dp(64),ui.dp(30)));details.setOnClickListener(v->status.showHistory());log.addView(logHeading);
+        ScrollView statusScroll=new ScrollView(this);statusScroll.setFillViewport(true);statusScroll.addView(status);log.addView(statusScroll,new LinearLayout.LayoutParams(-1,0,1));
+        root.addView(voiceInfo,new LinearLayout.LayoutParams(-1,ui.dp(20)));
         Button enter=ui.button("Open VR",true);
         enter.setOnClickListener(v->{String h=host.getText().toString().trim(),t=token.getText().toString().trim();
             if(!ConnectionStore.validHost(h)||t.length()<12){status.setText("Press CONNECT before opening VR.");return;}
@@ -103,11 +111,12 @@ public class LauncherActivity extends Activity {
         root.addView(label("A + X: Start / Pause     B: STOP",12,muted));
         ConnectionForm.show(this,ui,root,enter);
         if(getIntent().getBooleanExtra("preview_connection",false)&&(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0){
+            if(getIntent().getBooleanExtra("preview_error",false))status.setText("Connection failed: the robot did not answer within the expected time. Check the robot address and network connection, then try again. The full message remains readable here and in the connection log without hiding Connect or Open VR.");
             root.postDelayed(()->{try{
                 android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(root.getWidth(),root.getHeight(),android.graphics.Bitmap.Config.ARGB_8888);
                 root.draw(new android.graphics.Canvas(bitmap));
                 try(FileOutputStream out=new FileOutputStream(new File(getExternalFilesDir(null),"connection-preview.png"))){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}bitmap.recycle();
-                android.util.Log.i("TeleNao","Connection layout width="+root.getWidth()+" height="+root.getHeight()+" openVrBottom="+enter.getBottom()+" scrollContainers=0 savedCredentials="+!sshPassword.getText().toString().isEmpty());
+                android.util.Log.i("TeleNao","Connection layout width="+root.getWidth()+" height="+root.getHeight()+" openVrBottom="+enter.getBottom()+" formScrollContainers=0 logScrollContainers=1 savedCredentials="+!sshPassword.getText().toString().isEmpty());
             }catch(Exception error){android.util.Log.w("TeleNao","Connection preview unavailable");}},600);
         }
 if(getIntent().getBooleanExtra("enter_vr",false))enter.performClick();
