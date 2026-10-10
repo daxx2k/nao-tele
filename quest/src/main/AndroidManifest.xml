@@ -17,7 +17,7 @@
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.DEFAULT" /><category android:name="android.intent.category.LAUNCHER" /><category android:name="com.oculus.intent.category.2D" /><category android:name="com.oculus.intent.category.VR_HOME_LAUNCHER" /><category android:name="com.oculus.intent.category.OVERLAY_LAUNCHER" /></intent-filter>
         </activity>
         <activity android:name=".TeleoperationActivity" android:label="TeleNao" android:icon="@drawable/ic_telenao" android:exported="true" android:launchMode="singleTask" android:taskAffinity="it.telenao.quest.immersive" android:screenOrientation="landscape" android:resizeableActivity="false" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboardHidden|keyboard|navigation|uiMode" android:excludeFromRecents="false">
-            <meta-data android:name="android.app.lib_name" android:value="telepepper" />
+            <meta-data android:name="android.app.lib_name" android:value="telenao" />
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.DEFAULT" /><category android:name="com.oculus.intent.category.VR" /><category android:name="org.khronos.openxr.intent.category.IMMERSIVE_HMD" /></intent-filter>
         </activity>
     </application>

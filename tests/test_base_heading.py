@@ -1,5 +1,5 @@
 import sys,pathlib,unittest,math
-sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'pepper/bridge'))
+sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'nao/bridge'))
 from base_heading import BaseHeading
 
 class HeadingTests(unittest.TestCase):

@@ -5,7 +5,7 @@
 #include <cassert>
 #include <cstdio>
 #include <chrono>
-using namespace pepper_arm;
+using namespace nao_arm;
 int main(){
     laser_map::Map map;
     assert(map.update({0,0,0},{{0,1,0},{1,1,0},{2,1,0}},1));

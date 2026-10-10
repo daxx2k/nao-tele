@@ -1,0 +1,4 @@
+# Copy to .local/nao.properties and fill in your own robot details.
+nao.ip=HEAD_IP
+nao.sshUser=nao
+nao.sshPassword=

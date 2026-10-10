@@ -7,7 +7,7 @@
 // Device/SubDeviceList laser values use each projected laser frame.
 // Transform to base axes exactly once, then apply wheel odometry.
 // Frames verified against ros-naoqi/naoqi_driver src/converters/laser.cpp
-// and pepper1.0_generated_urdf/pepper_sensors.xacro (older prose is ambiguous).
+// and nao1.0_generated_urdf/nao_sensors.xacro (older prose is ambiguous).
 namespace laser_map {
 struct Pose { double x,y,yaw; };
 struct Hit { int bank; double x,y; };

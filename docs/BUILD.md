@@ -1,4 +1,4 @@
-# Build TeleNao for NAO v4
+# Build TeleNao for NAO H25 v4-v6
 
 Install JDK 17, SDK platform 34, NDK 27.2.12479018 and CMake 3.22.1. Set ANDROID_HOME and JAVA_HOME or use Android Studio's SDK/runtime.
 
@@ -18,4 +18,4 @@ python -m unittest discover -s tests -p "test_*.py"
 python tools/privacy_check.py
 ```
 
-The robot uses its existing Python 2.7 qi/Pillow environment. Do not install PC developer dependencies on the robot or upgrade firmware. Native tests are separate from the Python suite. Physical movement requires validation on NAO v4 after motors have cooled.
+The installer detects an existing robot Python interpreter with qi and Pillow, for NAOqi 2.1-2.8. Do not install PC developer dependencies on the robot or upgrade firmware. Native tests are separate from the Python suite. Physical movement requires supervised validation on each robot; v5/v6 have not yet been physically verified.

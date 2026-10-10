@@ -1,4 +1,4 @@
-package it.telepepper.quest;
+package it.telenao.quest;
 
 import android.content.SharedPreferences;
 import java.lang.reflect.Proxy;

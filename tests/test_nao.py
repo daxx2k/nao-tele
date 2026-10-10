@@ -7,7 +7,7 @@ import threading
 import unittest
 from unittest.mock import Mock,patch
 ROOT=Path(__file__).resolve().parents[1]
-spec=importlib.util.spec_from_file_location('telenao',ROOT/'pepper/bridge/telepepper.py')
+spec=importlib.util.spec_from_file_location('telenao',ROOT/'nao/bridge/telenao.py')
 tp=importlib.util.module_from_spec(spec);spec.loader.exec_module(tp)
 from nao_profile import validate_robot, check_posture_temperature
 
@@ -56,7 +56,7 @@ class NaoTests(unittest.TestCase):
             s.tick(tp.clock(),.02)
             self.assertFalse(s.armed);s.robot.apply.assert_not_called()
             self.assertIn('standing posture',s.fault)
-    def test_torso_packet_never_dispatches_pepper_joints(self):
+    def test_torso_packet_never_dispatches_nao_joints(self):
         r=self.robot();r.apply(r.previous,[0.,0.,0.],.02,torso=[.2,.2])
         for call in r.motion.setAngles.call_args_list:
             self.assertTrue(set(call.args[0]).issubset(set(tp.NAMES)))
@@ -107,7 +107,7 @@ class NaoTests(unittest.TestCase):
     def test_deadman_release_sends_zero_immediately(self):
         r=self.robot();r.apply(r.previous,[1.,0.,0.],.02);r.apply(r.previous,[0.,0.,0.],.02)
         self.assertEqual(r.base,[0.,0.,0.]);r.motion.stopMove.assert_called_with(_async=True)
-    def test_stop_brakes_and_cancels_preset_without_pepper_torso(self):
+    def test_stop_brakes_and_cancels_preset_without_nao_torso(self):
         r=self.robot();r.motion.getAngles.return_value=Future(list(r.previous));r.stop();r.poll_stop();r.poll_stop()
         r.motion.stopMove.assert_called_once();r.posture.stopMove.assert_called_once()
         r.motion.getAngles.assert_called_once_with(tp.NAMES,True,_async=True)
@@ -127,7 +127,7 @@ class NaoTests(unittest.TestCase):
         s.accept(self.packet(s,base=[0.,0.,0.],auto_turn=True,body_yaw=.5),'127.0.0.1',1.)
         s.tick(1.01,.02)
         self.assertFalse(s.auto_turn);self.assertEqual(s.robot.apply.call_args.args[1],[0.,0.,0.])
-    def test_height_packet_reaches_apply_without_pepper_torso_assist(self):
+    def test_height_packet_reaches_apply_without_nao_torso_assist(self):
         s=self.state();s.robot.apply=Mock()
         s.accept(self.packet(s,height=-.7,torso_assist=False),'127.0.0.1',1.)
         s.tick(1.01,.02)
@@ -188,7 +188,7 @@ class NaoTests(unittest.TestCase):
         self.assertLess(max(abs(a-b) for a,b in zip(initial,r.previous)),.02)
         r.armed_at=tp.clock()-4;r.apply(target,[0.,0.,0.],.02)
         for i,value in enumerate(r.previous):self.assertLessEqual(value,r.limits[i][1])
-    def test_pepper_animation_and_speech_curves_are_unavailable(self):
+    def test_nao_animation_and_speech_curves_are_unavailable(self):
         r=tp.Robot(True);self.assertFalse(r.speech_arms.available());self.assertEqual(r.available_animations,set())
         with self.assertRaises(ValueError):r.begin_animation('wave_left')
     def service(self):
@@ -274,9 +274,20 @@ class NaoTests(unittest.TestCase):
         svc.state.disarm('Pilot disconnected')
         svc._prepare_posture('Stand')
         self.assertIn('Pilot disconnected',svc.state.prepare_message)
-    def test_matching_firmware_on_pepper_is_still_rejected(self):
-        session=Mock();session.service.return_value.getRobotConfig.return_value.value.return_value=[['Model Type','Body Version','Head Version'],['Pepper','VERSION_40','VERSION_40']]
+    def test_matching_firmware_on_another_robot_is_still_rejected(self):
+        session=Mock();session.service.return_value.getRobotConfig.return_value.value.return_value=[['Model Type','Body Version','Head Version'],['Robot','VERSION_40','VERSION_40']]
         with self.assertRaises(RuntimeError):validate_robot(session,'2.1.4.13')
+    def test_h25_v4_v5_v6_and_replacement_head_combinations_are_accepted(self):
+        for head in ('VERSION_40','VERSION_50','VERSION_60'):
+            for body in ('VERSION_40','VERSION_50','VERSION_60'):
+                session=Mock();motion=session.service.return_value
+                motion.getRobotConfig.return_value.value.return_value=[['Model Type','Body Version','Head Version'],['naoH25',body,head]]
+                self.assertEqual(validate_robot(session,'2.1.4.13'),'2.1.4.13')
+                motion.wakeUp.assert_not_called();motion.setAngles.assert_not_called()
+    def test_partial_body_and_unknown_revisions_have_specific_diagnostics(self):
+        for model,head,body,message in [('naoH21','VERSION_50','VERSION_50','Requires NAO H25'),('naoH25','VERSION_70','VERSION_70','unverified head/body'),('naoH25',None,'VERSION_50','unverified head/body')]:
+            session=Mock();session.service.return_value.getRobotConfig.return_value.value.return_value=[['Model Type','Body Version','Head Version'],[model,body,head]]
+            with self.assertRaisesRegex(RuntimeError,message):validate_robot(session,'2.1.4.13')
     def test_chest_rgb_uses_verified_native_channels_instead_of_broken_group_fade(self):
         leds=Mock();tp.WoZ.set_chest_color(leds,0x4388ff)
         leds.fadeRGB.assert_not_called()

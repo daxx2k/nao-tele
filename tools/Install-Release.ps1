@@ -22,6 +22,6 @@ if($Device -eq 'Quest'){
 }
 & $Adb -s $Serial install -r $apk
 if($LASTEXITCODE -ne 0){throw 'Installation failed. Device data has not been cleared.'}
-$activity='it.telenao.quest/it.telepepper.quest.LauncherActivity'
+$activity='it.telenao.quest/it.telenao.quest.LauncherActivity'
 & $Adb -s $Serial shell am start -n $activity
 if($LASTEXITCODE -ne 0){throw 'Installed, but could not open app. Open TeleNao on the device.'}

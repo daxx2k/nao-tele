@@ -1,4 +1,4 @@
-package it.telepepper.quest;
+package it.telenao.quest;
 public final class SpeechQueueTest {
     private static void check(boolean condition){if(!condition)throw new AssertionError();}
     public static void main(String[] args){

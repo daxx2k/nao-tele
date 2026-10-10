@@ -7,7 +7,7 @@ import re
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_DIRS = {'config', 'console', 'docs', 'gradle', 'pepper', 'quest', 'tests', 'third_party', 'tools'}
+SOURCE_DIRS = {'config', 'console', 'docs', 'gradle', 'nao', 'quest', 'tests', 'third_party', 'tools'}
 ROOT_FILES = {'.gitignore', 'README.md', 'LICENSE', 'LICENSE.md', 'NOTICE', 'NOTICE.md', 'CONTRIBUTING.md', 'SECURITY.md', 'build.gradle', 'settings.gradle', 'gradle.properties', 'gradlew', 'gradlew.bat', 'requirements-dev.txt'}
 EXCLUDED = {'build', '__pycache__', '.gradle', '.cxx', 'node_modules', '.local', '.reference', 'dist'}
 PATTERNS = {
@@ -28,7 +28,7 @@ def source_files(root=ROOT):
             continue
         if rel.parts[0] not in SOURCE_DIRS and rel.as_posix() not in ROOT_FILES:
             continue
-        if p.name in {'local.properties', 'pepper.properties', '.env'} or p.name.startswith('.env.') or p.suffix.lower() in {'.pyc', '.pyo', '.jks', '.keystore', '.pem', '.key', '.p12', '.pfx', '.log'}:
+        if p.name in {'local.properties', 'nao.properties', '.env'} or p.name.startswith('.env.') or p.suffix.lower() in {'.pyc', '.pyo', '.jks', '.keystore', '.pem', '.key', '.p12', '.pfx', '.log'}:
             continue
         yield p
 
@@ -40,10 +40,10 @@ def local_secrets():
         token = json.loads(pairing.read_text())['token']
         if len(token) >= 8:
             values.append(token.encode())
-    props = ROOT/'.local/pepper.properties'
+    props = ROOT/'.local/nao.properties'
     if props.exists():
         for line in props.read_text(encoding='utf-8-sig').splitlines():
-            if line.strip().startswith('pepper.sshPassword='):
+            if line.strip().startswith('nao.sshPassword='):
                 secret = line.split('=', 1)[1].strip()
                 if secret:
                     values.append(secret.encode())

@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 import unittest
 from unittest.mock import Mock
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'pepper/bridge'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'nao/bridge'))
 from nao_speech_player import read_clip,NativeClip,SpeechPlayerNao
 
 class Future:

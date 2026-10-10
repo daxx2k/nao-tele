@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 import unittest
 from unittest.mock import Mock
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'pepper/bridge'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'nao/bridge'))
 from nao_height import NaoHeight
 from wifi_reconnect import WifiReconnect
 

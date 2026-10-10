@@ -1,6 +1,6 @@
-# TeleNao / TelePepper feature audit
+# TeleNao feature audit
 
-TeleNao 0.1.10 derives from the TelePepper `pepper25` branch. Shared Quest control and media paths were compared with that branch; Android-tablet features on the main branch were also checked for relevance.
+TeleNao 0.1.11 uses the shared telepresence control architecture. Shared Quest control and media paths were compared with that branch; Android-tablet features on the main branch were also checked for relevance.
 
 | Feature | TeleNao result | Verification |
 |---|---|---|
@@ -19,8 +19,10 @@ TeleNao 0.1.10 derives from the TelePepper `pepper25` branch. Shared Quest contr
 | Camera controls | Both RGB cameras together at 5 requested fps each; single feed requests 30 fps | Native camera-selection test; disarmed wireless frame test |
 | Battery, temperatures, touches, sonar, bumpers | NAO telemetry mappings; missing sensors remain null | Live sensor API and key discovery; foot-bumper mappings corrected |
 | Floating panels, layout save/load, Help, connection/pairing | Shared behavior retained; NAO wording and layouts updated | Native dashboard/layout and discovery tests |
-| Tablet display, depth camera, Pepper lidar | No corresponding hardware on this NAO | Hidden/excluded from Quest controls |
-| Pepper torso, full-body Pepper animations | Excluded; native NAO posture/gait own the legs | No arbitrary behavior dispatch or Pepper hip/wheel calls |
+| Tablet display, depth camera, Robot lidar | No corresponding hardware on this NAO | Hidden/excluded from Quest controls |
+| Robot torso, full-body Robot animations | Excluded; native NAO posture/gait own the legs | No arbitrary behavior dispatch or Robot hip/wheel calls |
 | Speed/range disable switches, automatic fault re-arm | Hardware bounds retained; guarded recovery of previously armed sessions | Safeguards remain enabled; this is a deliberate port policy, not an asserted hardware limitation |
 
 Coverage is not a claim that every feature was physically tested. This audit includes code comparison, mock regressions, native checks on Quest and the specific live tests listed above. Wireless jitter remains significant; session survival does not prove physical low latency.
+
+Compatibility: H25 v4-v6 are accepted on NAOqi 2.1-2.8; only v4 has live hardware evidence. V5/V6 physical tests remain pending.

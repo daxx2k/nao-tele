@@ -1,11 +1,11 @@
 # TeleNao validation history
 
-Current release: 0.1.10-naov4-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. Only NAO v4 H25 / NAOqi 2.1 is validated; v5/v6 compatibility awaits hardware testing.
+Current release: 0.1.11-nao-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. NAO v4 H25 / NAOqi 2.1 has live validation; v5/v6 H25 are enabled, with physical validation pending.
 
-Derived from the pepper25 branch, with separate Android identity and private settings.
+Derived from the nao branch, with separate Android identity and private settings.
 
 - Quest APK built successfully with SDK 34, NDK 27.2 and OpenXR.
-- Installed beside the existing TelePepper app on Quest 3.
+- Installed beside the existing TeleNao app on Quest 3.
 - Private pairing configuration imported and SSH secret encrypted by Android Keystore.
 - 49 active Python regression checks passed, including posture interlocks, walking gates,
   walking speed caps, deadman release, STOP completion, explicit re-arm, model/version checks and exit.
@@ -19,8 +19,8 @@ Still requiring supervised physical verification: native preset transitions, act
 turning, STOP response during physical walking, pose accuracy, headset tracking and end-to-end latency.
 No posture or walking trial was triggered during deployment.
 
-The inherited Pepper-only motion/speech-gesture cases are retained under tests/pepper_reference.
-They describe incompatible Pepper geometry and policies; active NAO coverage is tests/test_nao.py.
+The inherited Robot-only motion/speech-gesture cases are retained under tests/nao_reference.
+They describe incompatible Robot geometry and policies; active NAO coverage is tests/test_nao.py.
 
 ## Disconnection investigation
 
@@ -116,10 +116,10 @@ not been verified.
   telemetry disarms control. It never initiates Stand automatically.
 - Removed the two independent posture/walking cards; consolidated their data in
   Motion. Existing eleven-card layouts migrate to the nine surviving cards.
-- Ported current TelePepper setup fixes: Home-based setup/VR transitions, compact
+- Ported current TeleNao setup fixes: Home-based setup/VR transitions, compact
   scrollable form with a persistent entry button, and pairing storage per address.
   SSH bootstrap and credentials remain NAO-specific. Comparison found no newer
-  C++ transport commits in the checked local TelePepper history.
+  C++ transport commits in the checked local TeleNao history.
 - Active following submits the newest bounded reference directly, including hand
   aperture. Initial measured-pose blending remains three seconds. Native speed
   fractions: head 0.25, arms 0.5, hands 0.6; engagement remains 0.12/0.15. Robot
@@ -176,7 +176,7 @@ still requires operator validation; no autonomous gait test was initiated.
 
 ## TeleNao 0.1.7 (2026-10-10)
 
-Compared with current TelePepper main (4efa691). Ported missing discovery changes:
+Compared with upstream main (4efa691). Ported missing discovery changes:
 interface broadcasts, repeated UDP requests and authenticated saved-endpoint TCP
 fallback. Adapted discovery and saved-pairing tests passed on the host JVM. The
 Android shell test process was killed twice; those tests are not claimed as
@@ -222,3 +222,15 @@ Explicit START now prepares native StandInit at standard speed 0.5 when not stan
 All joystick axes now have a 50% normalized cap; translation diagonals share it. Right-stick dominant-axis selection prevents incidental vertical input from cancelling rotation. Motion adds a saved Smooth/Balanced/Quick response setting. Translation acceleration is vector-bounded (0.35/0.70/1.05 normalized units/s); rotation uses 0.40/0.80/1.20. Balanced is the default. STOP and centred-stick release use native stopMove without a software delay. Physical lateral movement, turning and the new response profiles remain unverified; no robot motion was initiated during development.
 
 89 Python regressions passed; joystick, dashboard-layout and START native tests passed on Quest without connecting to NAO or requesting robot motion. The Quest APK built successfully. The response control fits within Motion without overlapping the native posture buttons. This release is not yet installed on the robot.
+
+## TeleNao 0.1.11
+
+Targets H25 v4-v6 / NAOqi 2.1-2.8, including VERSION_40/50/60 and replacement-head combinations. Live joint limits, required services and all motion interlocks remain checked. V4 has physical evidence; V5/V6 are enabled for supervised tests and are not claimed as physically validated.
+
+Installer probes python2.7/python2/python/python3 commands for native qi/Pillow imports and local NAOqi service connectivity, preserving SDK environment variables. It preserves existing pairing, stops the app-owned legacy service only while disarmed, and installs the bundled bridge on each CONNECT.
+
+Bridge files now live in nao/bridge, with telenao.py, manage.py and runner.py. Java packages and the native library use it.telenao/telenao. Application ID, preferences and Keystore alias remain unchanged. Removed obsolete packages, incompatible archived tests and unused artwork/tools; origin attribution remains in legal notices.
+
+94 Python regressions and host Java runtime-selection tests passed. The Quest APK built successfully. No NAO deployment or motion was requested during development. V5/V6 camera, speech, posture and gait operation still require physical verification.
+
+Updated the existing Quest installation in place: saved connection and encrypted credential files were byte-identical before and after installation. The renamed it.telenao.quest.LauncherActivity opened successfully without robot connection. APK scan found no legacy branding, and confirmed libtelenao.so and the assets/nao/telenao.py bridge.

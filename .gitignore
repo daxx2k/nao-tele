@@ -14,7 +14,7 @@ dist/
 
 # Personal configuration, credentials, diagnostic captures and signing material
 *.properties.local
-pepper.properties
+nao.properties
 .env
 .env.*
 !.env.example

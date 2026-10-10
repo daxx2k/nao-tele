@@ -2,23 +2,29 @@
 
 Control a NAO humanoid from Meta Quest: mirror your head, arms and hands, see through its two cameras, walk with the controllers, and speak through the robot. TeleNao also offers a desktop operator console for speech, LEDs and native posture presets.
 
-A separate app derived from [TelePepper](https://github.com/daxx2k/pepper-tele), with its own Android application ID (`it.telenao.quest`), settings and robot service.
+Standalone NAO app with Android application ID `it.telenao.quest`, private settings and a robot service. Origin attribution is retained in NOTICE.
 
 ## Download
 
-Experimental release **0.1.10-naov4-test**. Use with an attentive operator and space around the robot.
+Experimental release **0.1.11-nao-test**. Use with an attentive operator and space around the robot.
 
 | Package | Download |
 |---|---|
-| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.10-naov4-test/TeleNao-Quest.apk) |
+| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.11-nao-test/TeleNao-Quest.apk) |
 | APK, installer and instructions | [Installation bundle](https://github.com/daxx2k/nao-tele/releases) |
 | Source bundle and checksums | [Release assets](https://github.com/daxx2k/nao-tele/releases) |
 
 ## Compatibility
 
-Targets **NAO v4 H25 with NAOqi 2.1**, developed with NAOqi 2.1.4.13 and Quest 3.
+Targets **NAO H25 v4, v5 and v6**, using the native Python qi/Pillow environment on NAOqi **2.1 through 2.8**. CONNECT tries the robot's available Python interpreters and preserves its SDK environment variables. There is no v4-only restriction.
 
-**NAO v5 and v6 are possible future targets, awaiting testers.** V5 shares the NAOqi 2.1 platform; V6 normally uses NAOqi 2.8. Neither is validated or enabled by the installer. Model, firmware, Python runtime, cameras and motion limits need checking on real hardware before support is confirmed. The same Quest interface is intended to be retained where possible.
+| Generation | Hardware revision | Status |
+|---|---|---|
+| V4 | VERSION_40 | Live hardware evidence on NAOqi 2.1.4.13 |
+| V5 | VERSION_50 | Enabled; physical confirmation pending |
+| V6 | VERSION_60 | Enabled, including NAOqi 2.8; physical confirmation pending |
+
+The bridge also accepts replacement-head combinations within these generations, checks H25 body type and reads live joint limits. Firmware, required services and a functioning qi/Pillow environment are checked before the service becomes available; a successful compatibility check never starts motion. See [Aldebaran model detection](https://fileadmin.cs.lth.se/robot/nao/doc/family/body_type.html) and [NAOqi API changes through 2.8](https://app.osrw.de/NAO/aldeb-doc-2.8.7.4/news/naosummary/api_nao.html).
 
 Requires owner SSH access and a reachable network connection between NAO and Quest. CONNECT installs the Python bridge in `/home/nao/telenao`, without upgrading firmware or creating a boot-time service. Direct PC Ethernet helps setup but does not by itself connect Quest to the robot.
 
@@ -45,7 +51,7 @@ See [Quick start](docs/QUICKSTART.md), [Help](docs/HELP.md) and [Build](docs/BUI
 
 Build with `tools/build.ps1 -Target Quest`; output: `dist/TeleNao-Quest.apk`. CONNECT deploys the bundled bridge over SSH.
 
-Some internal package/protocol names retain TelePepper names. User-facing branding and app identity are TeleNao. Pepper tablet, depth-camera and full-body animation features are unavailable on this NAO.
+The application, Java packages, native library and Python bridge use NAO naming.
 
 ## Privacy
 
@@ -55,6 +61,6 @@ Run `python tools/privacy_check.py --apks` before publication. See [Security](SE
 
 ## Validation and licence
 
-Experimental port: builds, regressions, audible voice confirmation and disarmed camera/network checks do not establish physical tracking accuracy or gait stability. See [Validation](docs/VALIDATION.md). V5/V6 support remains open until real-device testing.
+Experimental port: builds, regressions, audible voice confirmation and disarmed camera/network checks do not establish physical tracking accuracy or gait stability. See [Validation](docs/VALIDATION.md). V5/V6 physical validation remains pending.
 
 Apache-2.0, retaining upstream and third-party notices. Robot firmware and SDK components retain their own licences.

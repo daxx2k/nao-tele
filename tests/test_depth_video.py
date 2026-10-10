@@ -3,7 +3,7 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'pepper'/'bridge'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'nao'/'bridge'))
 from depth_video import render_depth
 
 

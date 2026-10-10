@@ -104,9 +104,9 @@ class App {
     std::array<XrQuaternionf,2> wristNeutral{{{0,0,0,1},{0,0,0,1}}};
     std::array<float,2> faceBlend{{0,0}},goalHeight{{0,0}};
     std::array<float,2> armLength{{.6f,.6f}},armError{{0,0}};
-    std::array<pepper_arm::Q,2> armPrevious{};
+    std::array<nao_arm::Q,2> armPrevious{};
     std::array<bool,2> armSolutionValid{{false,false}};
-    std::array<pepper_arm::Pose,2> humanArms{};
+    std::array<nao_arm::Pose,2> humanArms{};
     PoseCommand displayedPose,rawPose;
     std::array<float,12> offsets{};int offsetJoint=2;
     const char* offsetNames[12]={"Head yaw","Head pitch","L shoulder pitch","L shoulder roll","L elbow yaw","L elbow roll","L wrist yaw","R shoulder pitch","R shoulder roll","R elbow yaw","R elbow roll","R wrist yaw"};
@@ -576,30 +576,30 @@ void main(){
         auto foreRaw=torso(sub(joints[w].pose.position,joints[e].pose.position));
         int offset=left?2:7;
         const int side=left?0:1;
-        pepper_arm::V upper{-upperRaw.z,-upperRaw.x,upperRaw.y};
-        pepper_arm::V fore{-foreRaw.z,-foreRaw.x,foreRaw.y};
-        humanArms[side]=pepper_arm::retarget(upper,fore);
-        upper=pepper_arm::ry(pepper_arm::rx(upper,-torsoCommand[0]),-torsoCommand[1]);
-        fore=pepper_arm::ry(pepper_arm::rx(fore,-torsoCommand[0]),-torsoCommand[1]);
-        auto mapped=pepper_arm::retarget(upper,fore);
+        nao_arm::V upper{-upperRaw.z,-upperRaw.x,upperRaw.y};
+        nao_arm::V fore{-foreRaw.z,-foreRaw.x,foreRaw.y};
+        humanArms[side]=nao_arm::retarget(upper,fore);
+        upper=nao_arm::ry(nao_arm::rx(upper,-torsoCommand[0]),-torsoCommand[1]);
+        fore=nao_arm::ry(nao_arm::rx(fore,-torsoCommand[0]),-torsoCommand[1]);
+        auto mapped=nao_arm::retarget(upper,fore);
         auto elbow=mapped.elbow,wrist=mapped.wrist;
         float elbowWeight=1;faceBlend[side]=0;
         if(faceReach&&(head.locationFlags&XR_SPACE_LOCATION_POSITION_VALID_BIT)){
             auto delta=torso(sub(joints[w].pose.position,head.pose.position));
-            pepper_arm::V relative{-delta.z,-delta.x,delta.y};
-            relative=pepper_arm::ry(pepper_arm::rx(relative,-torsoCommand[0]),-torsoCommand[1]);
-            auto goal=pepper_arm::faceGoal(mapped,relative,pepper_arm::length(fore),left,pose.angles[0],pose.angles[1]-torsoCommand[1]);
+            nao_arm::V relative{-delta.z,-delta.x,delta.y};
+            relative=nao_arm::ry(nao_arm::rx(relative,-torsoCommand[0]),-torsoCommand[1]);
+            auto goal=nao_arm::faceGoal(mapped,relative,nao_arm::length(fore),left,pose.angles[0],pose.angles[1]-torsoCommand[1]);
             wrist=goal.wrist;elbowWeight=goal.elbowWeight;faceBlend[side]=goal.blend;
         }
         goalHeight[side]=wrist.z;
-        auto seed=pepper_arm::directionSeed(upper,fore,left);
-        auto solution=elbowWeight<.99f?pepper_arm::solveFace(wrist,elbow,left,seed,elbowWeight):pepper_arm::solve(wrist,elbow,left,seed,elbowWeight);
+        auto seed=nao_arm::directionSeed(upper,fore,left);
+        auto solution=elbowWeight<.99f?nao_arm::solveFace(wrist,elbow,left,seed,elbowWeight):nao_arm::solve(wrist,elbow,left,seed,elbowWeight);
         if(armSolutionValid[side]){
-            auto continuous=pepper_arm::solve(wrist,elbow,left,armPrevious[side],elbowWeight);
-            if(pepper_arm::cost(continuous,left,wrist,elbow,elbowWeight)<=pepper_arm::cost(solution,left,wrist,elbow,elbowWeight)+.000025f)solution=continuous;
+            auto continuous=nao_arm::solve(wrist,elbow,left,armPrevious[side],elbowWeight);
+            if(nao_arm::cost(continuous,left,wrist,elbow,elbowWeight)<=nao_arm::cost(solution,left,wrist,elbow,elbowWeight)+.000025f)solution=continuous;
         }
         armPrevious[side]=solution;armSolutionValid[side]=true;
-        armError[side]=pepper_arm::length(pepper_arm::sub(pepper_arm::forward(solution,left).wrist,wrist));
+        armError[side]=nao_arm::length(nao_arm::sub(nao_arm::forward(solution,left).wrist,wrist));
         for(int k=0;k<4;++k)pose.angles[offset+k]=solution[k];
         // Twist relative to the calibrated hand/forearm orientation. Project the
         // rotation onto the anatomical forearm axis to exclude wrist flexion.
@@ -1011,7 +1011,7 @@ void main(){
         if(!pointerOnHelp&&pointerGrip.held&&pointerValid){auto p=dashboard_theme::palette();themedPanel(pointer.x-6,pointer.y-6,12,12,p.accent,6);themedPanel(pointer.x-2,pointer.y-2,4,4,p.primary,2);}
     }
     void drawComparison(bool tracking){
-        using namespace pepper_arm;using J=nlohmann::json;
+        using namespace nao_arm;using J=nlohmann::json;
         const auto comparison=dashboard_layout::comparison;surfaceCard(comparison.x,comparison.y,comparison.w,comparison.h);drawOffsetY=comparison.y-100;
         text("Pose comparison",43,112,.85f,.88f,.93f,ui_type::heading);
         text("Quest",32,145,.2f,1,.3f,ui_type::body);text("Target",166,145,1,.65f,.1f,ui_type::body);text("Robot",310,145,.2f,.75f,1,ui_type::body);

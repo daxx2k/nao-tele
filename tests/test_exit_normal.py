@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
-spec=importlib.util.spec_from_file_location('exit_tp',ROOT/'pepper/bridge/telepepper.py')
+spec=importlib.util.spec_from_file_location('exit_tp',ROOT/'nao/bridge/telenao.py')
 tp=importlib.util.module_from_spec(spec);spec.loader.exec_module(tp)
 
 class ExitNormalTests(unittest.TestCase):

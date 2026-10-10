@@ -5,7 +5,7 @@
 
 // NAO v4 H25: metres, X forward/Y left/Z up.
 // Upper arm 105 mm, elbow lateral offset 15 mm, forearm to wrist 55.95 mm.
-namespace pepper_arm {
+namespace nao_arm {
 struct V { float x,y,z; };
 inline V add(V a,V b){return {a.x+b.x,a.y+b.y,a.z+b.z};}
 inline V sub(V a,V b){return {a.x-b.x,a.y-b.y,a.z-b.z};}
