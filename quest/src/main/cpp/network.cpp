@@ -104,7 +104,7 @@ void Network::controlLoop(){
                 ++commandErrors;
                 const auto failedCommand=request.value("cmd",std::string());
                 if(failedCommand=="arm"||failedCommand=="stop"||failedCommand=="prepare_motion")++motionCommandErrors;
-                if(failedCommand=="arm"||failedCommand=="stop"||failedCommand=="prepare_motion"||failedCommand=="gesture")
+                if(failedCommand=="arm"||failedCommand=="stop"||failedCommand=="prepare_motion"||failedCommand=="posture"||failedCommand=="gesture")
                     __android_log_print(ANDROID_LOG_WARN,"TeleNao","Motion action %s refused: %s",failedCommand.c_str(),reply.value("error",std::string("Action failed")).c_str());
                 actionMessage=reply.value("error",std::string("Action failed"));messageUntil=milliseconds()+8000;setStatus(actionMessage);
             }

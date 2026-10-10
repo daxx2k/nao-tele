@@ -11,7 +11,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--export-source', type=Path, help='New, empty standalone source directory')
     args = parser.parse_args()
-    version = '0.1.11-nao-test'
+    version = '0.1.12-nao-test'
     apk = ROOT / 'dist/TeleNao-Quest.apk'
     files = list(source_files())
     if not apk.is_file():

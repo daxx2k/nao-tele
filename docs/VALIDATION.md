@@ -1,6 +1,6 @@
 # TeleNao validation history
 
-Current release: 0.1.11-nao-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. NAO v4 H25 / NAOqi 2.1 has live validation; v5/v6 H25 are enabled, with physical validation pending.
+Current release: 0.1.12-nao-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. NAO v4 H25 / NAOqi 2.1 has live validation; v5/v6 H25 are enabled, with physical validation pending.
 
 Derived from the nao branch, with separate Android identity and private settings.
 
@@ -234,3 +234,9 @@ Bridge files now live in nao/bridge, with telenao.py, manage.py and runner.py. J
 94 Python regressions and host Java runtime-selection tests passed. The Quest APK built successfully. No NAO deployment or motion was requested during development. V5/V6 camera, speech, posture and gait operation still require physical verification.
 
 Updated the existing Quest installation in place: saved connection and encrypted credential files were byte-identical before and after installation. The renamed it.telenao.quest.LauncherActivity opened successfully without robot connection. APK scan found no legacy branding, and confirmed libtelenao.so and the assets/nao/telenao.py bridge.
+
+## TeleNao 0.1.12
+
+An operator reported posture buttons appeared to do nothing. Robot logs recorded repeated application thermal refusals for hip/knee/ankle joints; after reboot the currently queried affected sensors reported normal status. Motion now shows posture preparation, cancellation and failure messages, with an explicit thermal-block summary and a STOP-first refusal. Control logs also include refused posture commands. Native posture dispatch and thermal checks are unchanged. No automated posture movement was requested in this investigation.
+
+Thermal refusal diagnostics now include the native status per affected joint rather than labelling every nonzero state generically as too hot. Per Aldebaran, temperature is a current-based estimate; status 1 begins stiffness reduction, status 2 denotes stronger reduction and status 3 disables motor stiffness. There is no guessed Celsius threshold or override of native protection.

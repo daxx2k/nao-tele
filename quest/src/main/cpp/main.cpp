@@ -948,7 +948,15 @@ void main(){
         for(int g=0;g<7;++g){if(g==2||g==3||g==5)continue;auto tint=dashboard_theme::section[g];surfaceCard(xs[g],dashboard_layout::groupY[g],ws[g],dashboard_layout::groupHeight[g],tint);fitText(groups[g],xs[g]+23,dashboard_layout::groupY[g]+8,ws[g]-35,.85f,.88f,.93f,ui_type::heading);}
         std::string postureLine="Posture: "+t.value("posture",std::string("--"))+" | "+(fresh&&t.value("standing",false)?"Standing":"START stands NAO up");
         fitText(postureLine,xs[0]+10,dashboard_layout::groupY[0]+142,ws[0]-20,.85f,.94f,1,ui_type::secondary);
-        fitText(fresh&&t.value("walking_ready",false)?"Walking ready / speed 50%":"Walking paused / speed 50%",xs[0]+10,dashboard_layout::groupY[0]+161,ws[0]-20,.65f,.8f,.86f,ui_type::secondary);
+        auto preparation=state.value("preparation",J::object());
+        std::string poseMessage=preparation.value("message",std::string());
+        bool poseFailure=poseMessage.find("Preparation failed:")==0;
+        bool poseFeedback=preparation.value("busy",false)||poseFailure||poseMessage.find("Posture cancelled:")==0;
+        if(poseFailure&&(poseMessage.find("Motors too hot:")!=std::string::npos||poseMessage.find("Motor thermal protection active:")!=std::string::npos))poseMessage="Pose blocked: native motor protection / cool down";
+        const std::string actionStatus=network->status();
+        if(actionStatus.find("changing NAO posture")!=std::string::npos){poseMessage="Pose refused: press STOP first";poseFeedback=poseFailure=true;}
+        if(!poseFeedback)poseMessage=fresh&&t.value("walking_ready",false)?"Walking ready / speed 50%":"Walking paused / speed 50%";
+        fitText(poseMessage,xs[0]+10,dashboard_layout::groupY[0]+161,ws[0]-20,poseFailure?1.f:.65f,poseFailure?.45f:.8f,poseFailure?.3f:.86f,ui_type::secondary);
         fitText("NAO POSTURES / B cancels",xs[0]+10,dashboard_layout::groupY[0]+183,ws[0]-20,.55f,.85f,.75f,ui_type::secondary);
         pixelLine(xs[1]+12,dashboard_layout::groupY[1]+136,xs[1]+ws[1]-12,dashboard_layout::groupY[1]+136,1,.21f,.25f,.34f);
         fitText("PHRASES",xs[1]+12,dashboard_layout::groupY[1]+139,ws[1]-24,.7f,.75f,.9f,ui_type::secondary);

@@ -27,8 +27,8 @@ def check_posture_temperature(memory):
     for joint,value in zip(joints,values):
         if not isinstance(value,numbers.Real) or value not in (0,1,2,3):
             raise RuntimeError('Cannot verify motor temperature: '+joint)
-        if value>0:hot.append(joint)
-    if hot:raise RuntimeError('Motors too hot: '+', '.join(hot)+'. Wait for cooling before posture changes')
+        if value>0:hot.append(joint+' (status '+str(int(value))+')')
+    if hot:raise RuntimeError('Motor thermal protection active: '+', '.join(hot)+'. Wait for cooling before posture changes')
 
 def validate_robot(session,version=None):
     if version is None:version=session.service('ALSystem').systemVersion(_async=True).value(3000)

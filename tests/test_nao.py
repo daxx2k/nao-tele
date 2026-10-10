@@ -225,7 +225,8 @@ class NaoTests(unittest.TestCase):
         alarms=[0]*25;alarms[21]=1
         r.session.service.return_value.getListData.return_value=Future(alarms)
         svc._prepare_posture('Stand')
-        self.assertIn('Motors too hot',svc.state.prepare_message)
+        self.assertIn('Motor thermal protection active',svc.state.prepare_message)
+        self.assertIn('status 1',svc.state.prepare_message)
         r.motion.wakeUp.assert_not_called();r.motion.setStiffnesses.assert_not_called()
         r.posture.goToPosture.assert_not_called()
     def test_missing_thermal_status_blocks_posture(self):
