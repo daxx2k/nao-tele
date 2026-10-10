@@ -1,0 +1,51 @@
+package it.telepepper.quest;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import java.io.*;
+import org.json.JSONObject;
+
+final class ConnectionStore {
+    static java.util.Map<String,String> savedPairings(SharedPreferences prefs){
+        java.util.Map<String,String> result=new java.util.LinkedHashMap<>();
+        String current=prefs.getString("host","");String token=prefs.getString("token","");
+        if(validHost(current)&&token.length()>=12)result.put(current,token);
+        for(java.util.Map.Entry<String,?> entry:prefs.getAll().entrySet()){
+            if(!entry.getKey().startsWith("known_pairing_")||!(entry.getValue() instanceof String))continue;
+            String host=entry.getKey().substring("known_pairing_".length());String value=(String)entry.getValue();
+            if(validHost(host)&&value.length()>=12)result.put(host,value);
+        }
+        return result;
+    }
+    static String pairingFor(SharedPreferences prefs,String host) {
+        String saved=prefs.getString("known_pairing_"+host,"");
+        if(saved.length()>=12)return saved;
+        return host.equals(prefs.getString("host",""))?prefs.getString("token",""):"";
+    }
+    static void save(SharedPreferences prefs,String host,String token) {
+        SharedPreferences.Editor edit=prefs.edit();
+        String previous=prefs.getString("host",""),old=prefs.getString("token","");
+        if(validHost(previous)&&old.length()>=12)edit.putString("known_pairing_"+previous,old);
+        edit.putString("host",host).putString("token",token).putString("known_pairing_"+host,token).apply();
+    }
+    static SharedPreferences load(Context context) {
+        SharedPreferences prefs=context.getSharedPreferences("connection",Context.MODE_PRIVATE);
+        // Deployment bootstrap is imported once. Later edits belong to the user.
+        try(FileInputStream in=context.openFileInput("bootstrap.json")) {
+            ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[1024];int n;
+            while((n=in.read(b))!=-1)out.write(b,0,n);
+            JSONObject value=new JSONObject(out.toString("UTF-8"));
+            String host=value.getString("host"),token=value.getString("token");
+            if(validHost(host)&&token.length()>=12&&prefs.edit().putString("host",host).putString("token",token).commit()){
+                if(value.has("ssh_password"))NaoCredentials.save(context,host,value.optString("ssh_user","nao"),value.getString("ssh_password"));
+                context.deleteFile("bootstrap.json");
+            }
+        }catch(Exception ignored){}
+        return prefs;
+    }
+    static boolean validHost(String host){
+        String[] parts=host.split("\\.",-1);if(parts.length!=4)return false;
+        for(String p:parts)try{if(!p.matches("[0-9]{1,3}")||Integer.parseInt(p)>255)return false;}catch(Exception e){return false;}
+        return true;
+    }
+}

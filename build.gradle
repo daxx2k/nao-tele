@@ -1,0 +1,8 @@
+plugins { id 'com.android.application' version '8.1.0' apply false }
+
+// Keep generated files outside cloud sync when a private local build root is supplied.
+allprojects {
+    if (System.getenv("TELENAO_BUILD_ROOT")) {
+        buildDir = new File(System.getenv("TELENAO_BUILD_ROOT"), project.name)
+    }
+}

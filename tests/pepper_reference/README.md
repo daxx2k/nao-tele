@@ -1,0 +1,1 @@
+Historical Pepper-only regression cases retained from pepper25. These assert Pepper torso/wheels, animation curves, optional unbounded following and automatic recovery, all intentionally excluded from TeleNao. The active NAO motion suite is test_nao.py; shared media/privacy/exit checks remain active.
