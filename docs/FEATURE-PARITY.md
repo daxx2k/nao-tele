@@ -1,12 +1,12 @@
 # TeleNao / TelePepper feature audit
 
-TeleNao 0.1.8 derives from the TelePepper `pepper25` branch. Shared Quest control and media paths were compared with that branch; Android-tablet features on the main branch were also checked for relevance.
+TeleNao 0.1.10 derives from the TelePepper `pepper25` branch. Shared Quest control and media paths were compared with that branch; Android-tablet features on the main branch were also checked for relevance.
 
 | Feature | TeleNao result | Verification |
 |---|---|---|
 | Quest head, arms, wrists, trigger hands | Same controls, NAO lengths and hardware limits | Code review, native build, joint-limit tests, 216 native FK/IK round trips and T-pose continuity checks; physical pose accuracy still needs operator trials |
 | START, calibration, mirror, STOP, watchdog | Preserved; guarded brief-timeout recovery; explicit START after full reconnection | Regression checks; Sit executed and confirmed live |
-| Joystick movement / height | Native NAO walking with standing/awake gates and 35% forward/back cap, 10% sideways/turn, bounded continuous height | Input/gating tests; physical gait is still unvalidated |
+| Joystick movement / height | Native NAO walking with standing/awake gates and 50% on all axes with bounded acceleration, bounded continuous height | Input/gating tests; physical gait is still unvalidated |
 | Manual animation panel | StandInit, Stand, Sit, Crouch in the original motion-animation grid | Native layout checks and live Sit |
 | Automatic speech gestures | Native NAO conversation resources, arms only; OFF by default | Three installed clips parsed; dry-run scheduling verifies only ten arm joints, measured-pose start, hardware bounds and speed caps; no physical gesture run yet |
 | Live puppeteer voice | Preserved | 113 PCM packets sent from Quest to robot with no audio error; separate audible phrase confirmed by the operator |

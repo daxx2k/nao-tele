@@ -20,6 +20,7 @@ struct PoseCommand {
     bool sticksNeutral=false;
     float bodyYaw=0;
     float height=0;
+    int driveResponse=1;
     std::array<float,2> torso{};
     bool torsoAssist=false;
     double sampled=0;

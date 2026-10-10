@@ -70,13 +70,40 @@ class NaoTests(unittest.TestCase):
     def test_walking_cap_bounds_diagonal_and_rotation(self):
         r=self.robot()
         for i in range(100):r.walking_checked_at=tp.clock();r.apply(r.previous,[1.,1.,1.],.02)
-        self.assertLessEqual(math.hypot(*r.base[:2]),.35000001);self.assertLessEqual(abs(r.base[1]),.1);self.assertLessEqual(abs(r.base[2]),.1)
+        self.assertLessEqual(math.hypot(*r.base[:2]),.50000001);self.assertLessEqual(abs(r.base[1]),.5);self.assertLessEqual(abs(r.base[2]),.5)
     def test_forward_drive_reaches_new_cap_and_passes_native_step_config(self):
         r=self.robot()
         for _ in range(100):
             r.walking_checked_at=tp.clock();r.apply(r.previous,[.5,0.,0.],.02)
-        self.assertAlmostEqual(r.base[0],.35)
+        self.assertAlmostEqual(r.base[0],.5)
         self.assertEqual(r.motion.moveToward.call_args.args[3],[['MaxStepX',.06]])
+    def test_sideways_and_turn_reach_half_scale_in_both_directions(self):
+        for axis in (1,2):
+            for sign in (-1,1):
+                r=self.robot();target=[0.,0.,0.];target[axis]=sign*.5
+                for _ in range(100):r.walking_checked_at=tp.clock();r.apply(r.previous,target,.02)
+                self.assertAlmostEqual(r.base[axis],sign*.5)
+                self.assertTrue(all(v==0 for i,v in enumerate(r.base) if i!=axis))
+    def test_response_profiles_bound_acceleration_steering_and_reversal(self):
+        first=[]
+        for mode,(translation,rotation) in enumerate(tp.DRIVE_RESPONSE_ACCEL):
+            r=self.robot();r.drive_response=mode
+            for target in ([.5,0.,.5],[0.,-.5,-.5],[-.5,0.,.5]):
+                before=list(r.base);r.walking_checked_at=tp.clock();r.apply(r.previous,list(target),.02)
+                self.assertLessEqual(math.hypot(r.base[0]-before[0],r.base[1]-before[1]),translation*.02+1e-8)
+                self.assertLessEqual(abs(r.base[2]-before[2]),rotation*.02+1e-8)
+            first.append(abs(r.base[2]))
+        self.assertLess(first[0],first[1]);self.assertLess(first[1],first[2])
+    def test_every_response_profile_stops_on_centred_sticks(self):
+        for mode in range(3):
+            r=self.robot();r.drive_response=mode;r.base=[.2,.2,.4];r.base_sent=list(r.base)
+            r.apply(r.previous,[0.,0.,0.],.02)
+            self.assertEqual(r.base,[0.,0.,0.]);r.motion.stopMove.assert_called_with(_async=True)
+    def test_response_setting_and_half_scale_axes_reach_robot(self):
+        s=self.state();s.accept(self.packet(s,base=[0.,.5,-.5],drive_response=2),'127.0.0.1',1.)
+        self.assertEqual(s.latest[1],[0.,.5,-.5]);self.assertEqual(s.robot.drive_response,2)
+        for bad in (-1,3,True,1.5,'quick'):
+            with self.assertRaises(ValueError):s.accept(self.packet(s,seq=2,drive_response=bad),'127.0.0.1',1.)
     def test_deadman_release_sends_zero_immediately(self):
         r=self.robot();r.apply(r.previous,[1.,0.,0.],.02);r.apply(r.previous,[0.,0.,0.],.02)
         self.assertEqual(r.base,[0.,0.,0.]);r.motion.stopMove.assert_called_with(_async=True)

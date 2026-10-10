@@ -1,6 +1,6 @@
 # TeleNao validation history
 
-Current release: 0.1.9-naov4-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. Only NAO v4 H25 / NAOqi 2.1 is validated; v5/v6 compatibility awaits hardware testing.
+Current release: 0.1.10-naov4-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. Only NAO v4 H25 / NAOqi 2.1 is validated; v5/v6 compatibility awaits hardware testing.
 
 Derived from the pepper25 branch, with separate Android identity and private settings.
 
@@ -216,3 +216,9 @@ Connection settings use two fixed columns with a persistent Open VR button. The 
 ## TeleNao 0.1.9
 
 Explicit START now prepares native StandInit at standard speed 0.5 when not standing or torso height is below 26 cm. Telemetry includes measured torso height in readiness, preventing calibration/ARM from skipping preparation. Already standing skips the preset. Cancellation/failure leaves control disarmed; automatic recovery never requests a stand-up. Added regressions cover crouch, low torso despite Standing family, already-standing bypass, failure and cancellation. Physical stand-up from START still requires an operator trial.
+
+## TeleNao 0.1.10
+
+All joystick axes now have a 50% normalized cap; translation diagonals share it. Right-stick dominant-axis selection prevents incidental vertical input from cancelling rotation. Motion adds a saved Smooth/Balanced/Quick response setting. Translation acceleration is vector-bounded (0.35/0.70/1.05 normalized units/s); rotation uses 0.40/0.80/1.20. Balanced is the default. STOP and centred-stick release use native stopMove without a software delay. Physical lateral movement, turning and the new response profiles remain unverified; no robot motion was initiated during development.
+
+89 Python regressions passed; joystick, dashboard-layout and START native tests passed on Quest without connecting to NAO or requesting robot motion. The Quest APK built successfully. The response control fits within Motion without overlapping the native posture buttons. This release is not yet installed on the robot.

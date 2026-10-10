@@ -152,7 +152,7 @@ void Network::motionLoop(){int s=-1;uint64_t seq=0;double lastSample=-1,lastSent
             bool fresh=now-p.sampled<100;
             // Send tracking validity independently of arm status. No auto-arm is possible.
             if((now-lastSent>=20&&(p.sampled!=lastSample||now-lastSent>=40))||lastStop!=stopMotion_){
-                json packet={{"session",session},{"seq",++seq},{"sent",now},{"sample_age_ms",std::max(0.,now-p.sampled)},{"angles",p.angles},{"base",p.base},{"active",p.active&&fresh},{"drive",p.drive&&fresh},{"auto_turn",p.autoTurn&&fresh},{"height",p.active&&fresh?p.height:0.f},{"body_yaw",p.bodyYaw},{"torso",p.torso},{"torso_assist",p.torsoAssist&&fresh}};
+                json packet={{"session",session},{"seq",++seq},{"sent",now},{"sample_age_ms",std::max(0.,now-p.sampled)},{"angles",p.angles},{"base",p.base},{"active",p.active&&fresh},{"drive",p.drive&&fresh},{"auto_turn",p.autoTurn&&fresh},{"height",p.active&&fresh?p.height:0.f},{"drive_response",p.driveResponse},{"body_yaw",p.bodyYaw},{"torso",p.torso},{"torso_assist",p.torsoAssist&&fresh}};
                 lastStop=stopMotion_;packet["stop"]=lastStop;packet["stop_epoch"]=stopEpoch_.load();
                 packet["sticks_neutral"]=p.sticksNeutral;packet["pause_reason"]=p.pauseReason;
                 auto text=packet.dump();ssize_t sent=send(s,text.data(),text.size(),MSG_NOSIGNAL);

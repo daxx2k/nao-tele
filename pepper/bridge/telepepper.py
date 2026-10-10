@@ -48,8 +48,9 @@ NAMES = ['HeadYaw', 'HeadPitch', 'LShoulderPitch', 'LShoulderRoll',
 LIMITS = [(-1.0, 1.0), (-.68, .43), (-2.05, 2.05), (.05, 1.48),
           (-1.8, 1.8), (-1.5, -.05), (-1.7, 1.7), (-2.05, 2.05),
           (-1.48, -.05), (-1.8, 1.8), (.05, 1.5), (-1.7, 1.7), (0, 1), (0, 1)]
-# Forward walking cap; lateral motion and rotation retain their 10% caps.
-BASE_TEST_CAP = .35
+# Normalized joystick command cap on translation and rotation.
+BASE_TEST_CAP = .50
+DRIVE_RESPONSE_ACCEL = ((.35,.40),(.70,.80),(1.05,1.20))
 WALK_CONFIG = [['MaxStepX', .06]]
 # External collision margins in metres. These do not disable base protection.
 BASE_ORTHOGONAL_SECURITY_M = 0.40
@@ -70,11 +71,10 @@ def finite_vector(value, size):
 def cap_test_base(base, cap):
     if cap is None:return list(base)
     x,y,theta=base
-    y=clamp(y,-.1,.1)
     length=math.hypot(x,y)
     if length>cap:
         x*=cap/length;y*=cap/length
-    return [x,y,clamp(theta,-min(cap,.1),min(cap,.1))]
+    return [x,y,clamp(theta,-cap,cap)]
 
 def configure_base_security(motion):
     orthogonal=float(BASE_ORTHOGONAL_SECURITY_M)
@@ -135,9 +135,10 @@ class Robot(object):
         self.hardware_limits=list(LIMITS)
         self.hardware_max_speed=[float('inf')]*14
         self.range_limited=True;self.speed_limited=True
+        self.drive_response=1
         self.base_test_cap=None if BASE_TEST_CAP is None else float(BASE_TEST_CAP)
-        if self.base_test_cap is not None and not (0.<self.base_test_cap<=.35):
-            raise ValueError('Base test cap must be finite and between 0 and 0.35')
+        if self.base_test_cap is not None and not (0.<self.base_test_cap<=.50):
+            raise ValueError('Base test cap must be finite and between 0 and 0.50')
         self.base_sent = None
         self.base_sent_at = 0.
         self.base_requests = 0
@@ -413,9 +414,18 @@ class Robot(object):
             high = max(self.origin[i], self.limits[i][1])
             out.append(clamp(self.previous[i]+step, low, high))
         base=cap_test_base(base,self.base_test_cap)
-        for i, target in enumerate(base):
-            # Deadman release must stop promptly; acceleration applies when driving.
-            self.base[i] = 0. if target == 0. else self.base[i]+clamp(target-self.base[i], -(3.6 if i==2 else .70)*dt, (3.6 if i==2 else .70)*dt)
+        # Bound the translation-vector change, not each component independently:
+        # diagonal steering gets the same acceleration budget as straight walking.
+        # Native stopMove provides gait deceleration on release; no software ramp
+        # may prolong motion after centred sticks or STOP.
+        if any(base[:2]):
+            delta=[base[i]-self.base[i] for i in range(2)]
+            length=math.hypot(*delta);step=DRIVE_RESPONSE_ACCEL[self.drive_response][0]*dt
+            gain=min(1.,step/length) if length else 1.
+            for i in range(2):self.base[i]+=delta[i]*gain
+        else:self.base[:2]=[0.,0.]
+        target=base[2];step=DRIVE_RESPONSE_ACCEL[self.drive_response][1]*dt
+        self.base[2]=0. if target==0. else self.base[2]+clamp(target-self.base[2],-step,step)
         self.base=cap_test_base(self.base,self.base_test_cap)
         if not self.simulate:
             # Never wait for motor RPCs while holding the pose/UDP state lock.
@@ -565,6 +575,8 @@ class State(object):
         torso=finite_vector(packet.get('torso',[0.,0.]),2) if packet.get('torso_assist') is True else None
         body_yaw = float(packet.get('body_yaw',0.))
         height=float(packet.get('height',0.))
+        response=packet.get('drive_response',1)
+        if type(response) is not int or response not in (0,1,2):raise ValueError('Invalid drive response')
         if math.isnan(height) or math.isinf(height) or abs(height)>1.:raise ValueError('height input')
         if math.isnan(body_yaw) or math.isinf(body_yaw) or abs(body_yaw) > math.pi+.01:
             raise ValueError('body yaw')
@@ -629,9 +641,10 @@ class State(object):
             # Grip deadman gates the mobile base, tracking gates all motion.
             if packet.get('drive') is not True:
                 base = [0., 0., 0.]
-            caps=(.50,.4,.90) if self.robot.speed_limited else (1.,1.,1.)
+            caps=(.50,.50,.50) if self.robot.speed_limited else (1.,1.,1.)
             base=[clamp(v,-cap,cap) for v,cap in zip(base,caps)]
             if packet.get('drive') is not True:height=0.
+            self.robot.drive_response=response
             self.latest = (angles, base, seq, stamp, now, sample_age, body_yaw, packet.get('drive') is True,torso,height)
             self.motion_ready.set()
             return True

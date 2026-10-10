@@ -6,11 +6,11 @@ A separate app derived from [TelePepper](https://github.com/daxx2k/pepper-tele),
 
 ## Download
 
-Experimental release **0.1.9-naov4-test**. Use with an attentive operator and space around the robot.
+Experimental release **0.1.10-naov4-test**. Use with an attentive operator and space around the robot.
 
 | Package | Download |
 |---|---|
-| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.9-naov4-test/TeleNao-Quest.apk) |
+| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.10-naov4-test/TeleNao-Quest.apk) |
 | APK, installer and instructions | [Installation bundle](https://github.com/daxx2k/nao-tele/releases) |
 | Source bundle and checksums | [Release assets](https://github.com/daxx2k/nao-tele/releases) |
 
@@ -33,7 +33,9 @@ Requires owner SSH access and a reachable network connection between NAO and Que
 - Eyes, chest and feet RGB LEDs; ears and head intensity controls. Native arm-only speech gestures are off by default.
 - Battery, temperature and motion information, movable panels, saved layouts, discovery and a connection screen without scrolling.
 
-Forward/backward walking is capped at 35% normalized input, with a 6 cm maximum forward-step setting. Sideways movement and rotation are capped at 10%. These limits do not guarantee actual physical speed or step length. Lowered standing height prevents walking until height is restored.
+Motion includes a saved **Response: Smooth / Balanced / Quick** setting. It changes the acceleration of walking and rotation, not the 50% command cap or upper-body tracking. Balanced is the default. Centred sticks and STOP still stop promptly through native stopMove. On the right stick, the dominant axis selects turning or continuous height; small vertical deviations during a turn do not trigger crouching.
+
+All joystick axes are capped at 50% normalized input; translation diagonals share that cap, with a 6 cm maximum forward-step setting. These limits do not guarantee actual physical speed or step length. Lowered standing height prevents walking until height is restored.
 
 Control, video and motion use separate connections. Brief command interruptions may recover an already armed session only with fresh tracking, centred sticks and a standing robot. Explicit STOP, tracking loss and full reconnection require START again. Firmware protections remain active.
 

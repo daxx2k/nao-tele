@@ -88,6 +88,7 @@ public class TeleoperationActivity extends NativeActivity {
         SharedPreferences prefs=ConnectionStore.load(this);
         String host=prefs.getString("host",""),token=prefs.getString("token","");
         getIntent().putExtra("host",host).putExtra("token",token).putExtra("panel_scale",Float.toString(prefs.getFloat("panel_scale",.9f)));
+        getIntent().putExtra("drive_response",Integer.toString(prefs.getInt("drive_response",1)));
         getIntent().putExtra("depth_streaming",Boolean.toString(prefs.getBoolean("depth_streaming",false)));
         getIntent().putExtra("top_streaming",Boolean.toString(prefs.getBoolean("top_streaming",true)));
         getIntent().putExtra("bottom_streaming",Boolean.toString(prefs.getBoolean("bottom_streaming",true)));
@@ -111,6 +112,7 @@ public class TeleoperationActivity extends NativeActivity {
     public void saveAppearance(int target,String swatches){getSharedPreferences("connection",MODE_PRIVATE).edit().putInt("led_target",target).putString("led_swatches",swatches).apply();}
     public void saveRoomLocked(boolean value){getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("room_locked",value).apply();}
     public void savePoseMirror(boolean value){getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("pose_mirror",value).apply();}
+    public void saveDriveResponse(int value){getSharedPreferences("connection",MODE_PRIVATE).edit().putInt("drive_response",Math.max(0,Math.min(2,value))).apply();}
     public void saveDepthStreaming(boolean value){getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("depth_streaming",value).apply();}
     public void saveCameraStreaming(int camera,boolean value){getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean(camera==0?"top_streaming":"bottom_streaming",value).apply();}
     public void saveLidarMap(boolean value){getSharedPreferences("connection",MODE_PRIVATE).edit().putBoolean("lidar_enabled",value).apply();}

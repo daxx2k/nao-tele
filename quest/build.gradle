@@ -7,8 +7,8 @@ android {
         applicationId 'it.telenao.quest'
         minSdk 29
         targetSdk 32
-        versionCode 10
-        versionName '0.1.9-naov4-test'
+        versionCode 11
+        versionName '0.1.10-naov4-test'
         ndk { abiFilters 'arm64-v8a' }
         externalNativeBuild { cmake { cppFlags '-std=c++17 -O2 -Wall -Wextra'; arguments '-DANDROID_STL=c++_shared' } }
     }

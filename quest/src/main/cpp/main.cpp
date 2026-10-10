@@ -90,7 +90,7 @@ class App {
     XrVector2f pointer{},lastPointer{};
     const bool torsoAssist=false;
     std::array<float,2> torsoCommand{};
-    float driveScale=1;int speakerVolume=50;
+    float driveScale=1;int speakerVolume=50,driveResponse=1;
     bool wasTalk=false,wasVoiceEnabled=false,voiceItalian=false;unsigned voiceGeneration=0,voiceCancellation=0;std::string naturalVoiceName="Starting...";double voicePoll=0;std::string voiceStatus="Hold left grip to speak as NAO";
     int menuIndex=0;
     double lastMenuMove=0;
@@ -347,6 +347,8 @@ void main(){
         const char* limitKeys[]={"range","speed"};const char* limitLabels[]={"Joint limits","Speed limits"};
         if(false)for(int i=0;i<2;++i)rows.push_back({std::string(limitLabels[i])+(limits.value(limitKeys[i],true)?": ON":": OFF"),"Pause then change this software limit / START resumes",{{"cmd","local_robot_limit"},{"key",limitKeys[i]},{"slot",i},{"enabled",!limits.value(limitKeys[i],true)}}});
         for(const char* name:{"StandInit","Stand","Sit","Crouch"})rows.push_back({name,"STOP first / native NAO posture / B cancels",{{"cmd","posture"},{"name",name},{"confirmed",true}}});
+        const char* responses[]={"Smooth","Balanced","Quick"};
+        rows.push_back({std::string("Response: ")+responses[driveResponse],"Cycle walking response / speed cap stays 50%",{{"cmd","local_drive_response"}}});
         for(int c=0;c<2;++c)rows.push_back({c==0?"Top camera":"Bottom camera","Click the feed to toggle streaming",{{"cmd","local_camera"},{"camera",c}}});
         if(false)rows.push_back({network->depthStreaming?"Depth: ON":"Depth: OFF","Click the depth panel to toggle streaming",{{"cmd","local_depth"}}});
         rows.push_back({"Volume: "+std::to_string(speakerVolume)+"%","Cycle speaker volume 0 to 100% / 20% steps",{{"cmd","local_volume"}}});
@@ -369,7 +371,7 @@ void main(){
     int menuGroup(const MenuItem& item){
         auto c=item.action.value("cmd",std::string());
         if(item.action.value("tablet_preset",false))return 2;
-        if(c=="local_robot_limit"||c=="local_pose_mirror"||c=="local_torso_assist"||c=="local_start"||c=="local_stop"||c=="local_calibrate"||c=="gesture"||c=="posture")return 0;
+        if(c=="local_drive_response"||c=="local_robot_limit"||c=="local_pose_mirror"||c=="local_torso_assist"||c=="local_start"||c=="local_stop"||c=="local_calibrate"||c=="gesture"||c=="posture")return 0;
         if(c=="speech_gestures"||c=="speech_on_tablet"||c=="local_voice_mode"||c=="local_natural_voice"||c=="say"||c=="speech_stop"||c=="local_listen"||c=="local_volume")return 1;
         if(c=="tablet")return 2;
         if(c=="local_exit_normal"||c=="local_settings"||c=="local_reconnect"||c=="base_protection"||c=="local_panel_move"||c=="local_panel_resize"||c=="local_panel_lock"||c=="local_panel_here")return 4;
@@ -380,6 +382,7 @@ void main(){
     struct Card {float x,y,w,h;};
     Card menuRect(int index,const std::vector<MenuItem>& items){
         auto command=items[index].action.value("cmd",std::string());
+        if(command=="local_drive_response"){auto r=dashboard_layout::motionResponse;return {r.x,r.y,r.w,r.h};}
         if(command.find("local_layout")==0){if(command=="local_layout"){auto r=dashboard_layout::headerLayout;return layoutEditing?Card{814,6,48,48}:Card{r.x,r.y,r.w,r.h};}if(command=="local_layout_slot")return {876,14,100,32};if(command=="local_layout_save")return {982,14,80,32};if(command=="local_layout_load")return {1068,14,80,32};return {1154,14,92,32};}
         if(command=="local_help"){auto r=dashboard_layout::headerHelp;return {r.x,r.y,r.w,r.h};}
         if(command=="local_tablet_preview"){auto r=dashboard_layout::tabletScreen;return {r.x,r.y,r.w,r.h};}
@@ -393,7 +396,7 @@ void main(){
         if(command=="local_robot_limit"){float w=(dashboard_layout::width[0]-22)/2;return {dashboard_layout::x[0]+8+items[index].action.value("slot",0)*(w+6),dashboard_layout::groupY[0]+140,w,30};}
         int group=menuGroup(items[index]),count=0,ordinal=0;
         if(group==1){bool phrase=items[index].action.value("phrase",false);for(int i=0;i<(int)items.size();++i)if(menuGroup(items[i])==1&&items[i].action.value("phrase",false)==phrase){if(i<index)++ordinal;++count;}auto r=dashboard_layout::voiceButton(phrase,ordinal,count);return {r.x,r.y,r.w,r.h};}
-        for(int i=0;i<(int)items.size();++i)if(menuGroup(items[i])==group&&items[i].action.value("cmd",std::string())!="local_robot_limit"&&items[i].action.value("cmd",std::string())!="local_help"&&items[i].action.value("cmd",std::string()).find("local_layout")!=0&&items[i].action.value("cmd",std::string())!="local_temperature_unit"&&items[i].action.value("cmd",std::string())!="local_tablet_preview"&&items[i].action.value("cmd",std::string())!="local_map_clear"&&items[i].action.value("cmd",std::string())!="local_map"&&items[i].action.value("cmd",std::string())!="local_depth"&&items[i].action.value("cmd",std::string())!="local_camera"&&items[i].action.value("cmd",std::string()).find("local_panel_")!=0){if(i<index)++ordinal;++count;}
+        for(int i=0;i<(int)items.size();++i)if(menuGroup(items[i])==group&&items[i].action.value("cmd",std::string())!="local_drive_response"&&items[i].action.value("cmd",std::string())!="local_robot_limit"&&items[i].action.value("cmd",std::string())!="local_help"&&items[i].action.value("cmd",std::string()).find("local_layout")!=0&&items[i].action.value("cmd",std::string())!="local_temperature_unit"&&items[i].action.value("cmd",std::string())!="local_tablet_preview"&&items[i].action.value("cmd",std::string())!="local_map_clear"&&items[i].action.value("cmd",std::string())!="local_map"&&items[i].action.value("cmd",std::string())!="local_depth"&&items[i].action.value("cmd",std::string())!="local_camera"&&items[i].action.value("cmd",std::string()).find("local_panel_")!=0){if(i<index)++ordinal;++count;}
         auto r=dashboard_layout::button(group,ordinal,count);return {r.x,r.y,r.w,r.h};
     }
     StartFlow::Input startInput(bool tracked){
@@ -448,6 +451,11 @@ void main(){
         else if(cmd=="local_voice_mode"){network->cancelVoiceAudio();network->voiceMode=(network->voiceMode+1)%3;network->ttsVoice=network->voiceMode!=1;network->command({{"cmd","speech_stop"}});updateVoice(false);if(network->voiceMode==2){JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);jclass cls=env->GetObjectClass(app->activity->clazz);jstring lang=(jstring)env->CallObjectMethod(app->activity->clazz,env->GetMethodID(cls,"getNaturalVoiceLanguage","()Ljava/lang/String;"));const char* raw=env->GetStringUTFChars(lang,nullptr);voiceItalian=std::string(raw).find("it")==0;env->ReleaseStringUTFChars(lang,raw);env->DeleteLocalRef(lang);env->DeleteLocalRef(cls);}}
         else if(cmd=="local_natural_voice"){network->cancelVoiceAudio();updateVoice(false);JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);jclass cls=env->GetObjectClass(app->activity->clazz);jstring lang=env->NewStringUTF(voiceItalian?"it-IT":"en-US");env->CallVoidMethod(app->activity->clazz,env->GetMethodID(cls,"nextNaturalVoice","(Ljava/lang/String;)V"),lang);env->DeleteLocalRef(lang);env->DeleteLocalRef(cls);}
         else if(cmd=="local_listen")network->listenAudio=!network->listenAudio;
+        else if(cmd=="local_drive_response"){
+            driveResponse=(driveResponse+1)%3;
+            JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);jclass cls=env->GetObjectClass(app->activity->clazz);
+            env->CallVoidMethod(app->activity->clazz,env->GetMethodID(cls,"saveDriveResponse","(I)V"),driveResponse);env->DeleteLocalRef(cls);
+        }
         else if(cmd=="local_volume"){speakerVolume=dashboard_layout::nextVolume(speakerVolume);network->command({{"cmd","volume"},{"value",speakerVolume}});}
         else if(cmd=="local_panel_move")beginWindowGesture(3);
         else if(cmd=="local_panel_lock"){
@@ -740,12 +748,13 @@ void main(){
         if(poseMirror&&tracked&&calibrated)mirrorPose(pose.angles,torsoCommand);
         rawPose=pose;for(int i=0;i<12;++i)pose.angles[i]+=offsets[i]*.01745329252f;
         pose.torso=torsoCommand;pose.torsoAssist=torsoAssist;pose.angles[1]-=torsoCommand[1];
-        auto l=stick(0),r=stick(1);pose.base=driveInput.update(network->armed,pose.active,l.x,l.y,r.x);pose.drive=driveInput.ready;if(!network->snapshot().value("robot_limits",nlohmann::json::object()).value("speed",true)){pose.base[0]/=.50f;pose.base[1]/=.40f;pose.base[2]/=.90f;}
+        auto l=stick(0),r=stick(1);pose.base=driveInput.update(network->armed,pose.active,l.x,l.y,r.x,r.y);pose.drive=driveInput.ready;if(!network->snapshot().value("robot_limits",nlohmann::json::object()).value("speed",true)){for(float& axis:pose.base)axis/=.50f;}
         for(auto& speed:pose.base)speed*=driveScale;
+        pose.driveResponse=driveResponse;
         char driveText[160];std::snprintf(driveText,sizeof(driveText),"L %.2f %.2f | R %.2f | %s",l.x,l.y,r.x,menuOpen?"MENU":!pose.active?"PAUSED":!network->armed?"START":!driveInput.ready?"CENTER STICKS":"DRIVE READY");driveDiagnostic=driveText;
         static double lastDriveLog=0;if(milliseconds()-lastDriveLog>500){lastDriveLog=milliseconds();__android_log_print(ANDROID_LOG_INFO,"TeleNao","DriveDiag %s armed=%d active=%d base=%.3f/%.3f/%.3f video_age=%.0f",driveText,(int)network->armed.load(),pose.active,pose.base[0],pose.base[1],pose.base[2],milliseconds()-network->lastVideo);}
         pose.sticksNeutral=DriveInput::deadzone(l.x)==0&&DriveInput::deadzone(l.y)==0&&DriveInput::deadzone(r.x)==0&&DriveInput::deadzone(r.y)==0;
-        pose.height=pose.active&&network->armed&&driveInput.ready?DriveInput::deadzone(r.y):0.f;
+        pose.height=pose.active&&network->armed&&driveInput.ready?DriveInput::heightAxis(r.x,r.y):0.f;
         pose.autoTurn=false; // NAO walking/rotation require explicit joystick input.
         pose.bodyYaw=(poseMirror?-1.f:1.f)*std::atan2(std::sin(bodyYaw-neutralBodyYaw),std::cos(bodyYaw-neutralBodyYaw));
         static double lastArmLog=0;
@@ -939,7 +948,7 @@ void main(){
         for(int g=0;g<7;++g){if(g==2||g==3||g==5)continue;auto tint=dashboard_theme::section[g];surfaceCard(xs[g],dashboard_layout::groupY[g],ws[g],dashboard_layout::groupHeight[g],tint);fitText(groups[g],xs[g]+23,dashboard_layout::groupY[g]+8,ws[g]-35,.85f,.88f,.93f,ui_type::heading);}
         std::string postureLine="Posture: "+t.value("posture",std::string("--"))+" | "+(fresh&&t.value("standing",false)?"Standing":"START stands NAO up");
         fitText(postureLine,xs[0]+10,dashboard_layout::groupY[0]+142,ws[0]-20,.85f,.94f,1,ui_type::secondary);
-        fitText(fresh&&t.value("walking_ready",false)?"Walking ready / forward 35%":"Walking paused / forward 35%",xs[0]+10,dashboard_layout::groupY[0]+161,ws[0]-20,.65f,.8f,.86f,ui_type::secondary);
+        fitText(fresh&&t.value("walking_ready",false)?"Walking ready / speed 50%":"Walking paused / speed 50%",xs[0]+10,dashboard_layout::groupY[0]+161,ws[0]-20,.65f,.8f,.86f,ui_type::secondary);
         fitText("NAO POSTURES / B cancels",xs[0]+10,dashboard_layout::groupY[0]+183,ws[0]-20,.55f,.85f,.75f,ui_type::secondary);
         pixelLine(xs[1]+12,dashboard_layout::groupY[1]+136,xs[1]+ws[1]-12,dashboard_layout::groupY[1]+136,1,.21f,.25f,.34f);
         fitText("PHRASES",xs[1]+12,dashboard_layout::groupY[1]+139,ws[1]-24,.7f,.75f,.9f,ui_type::secondary);
@@ -1162,7 +1171,7 @@ public:
     }
     void run(){
         resetLayout();try{auto saved=nlohmann::json::parse(extra("layout_state"));if(saved.value("version",0)==1&&decodeLayout(saved.at("current"))){floating=saved.value("floating",false);if(saved.contains("presets")&&saved["presets"].is_array()&&saved["presets"].size()==3)layoutPresets=saved["presets"];layoutSlot=std::max(0,std::min(2,saved.value("slot",0)));}}catch(...){}
-        roomLocked=extra("room_locked")=="true";anchorPending=roomLocked;poseMirror=extra("pose_mirror")=="true";showLaserMap=extra("view")=="map";tabletPreview=extra("tablet_preview")!="false";fahrenheit=extra("fahrenheit")=="true";
+        driveResponse=std::max(0,std::min(2,int(std::strtol(extra("drive_response").c_str(),nullptr,10))));roomLocked=extra("room_locked")=="true";anchorPending=roomLocked;poseMirror=extra("pose_mirror")=="true";showLaserMap=extra("view")=="map";tabletPreview=extra("tablet_preview")!="false";fahrenheit=extra("fahrenheit")=="true";
         try{ledTarget=std::max(0,std::min(4,std::stoi(extra("led_target"))));auto saved=nlohmann::json::parse(extra("led_swatches"));if(saved.is_array()&&(saved.size()==3||saved.size()==5))for(int i=0;i<(int)saved.size();++i)if(saved[i].is_number_integer())ledSwatches[i]=saved[i].get<int>()<0?((i==2||i==3)?6:1):std::min(6,saved[i].get<int>());}catch(...){}
         try{auto saved=nlohmann::json::parse(extra("pose_offsets"));if(saved.is_array()&&saved.size()==12)for(int i=0;i<12;++i){float v=saved[i].get<float>();if(std::isfinite(v))offsets[i]=bounded(v,-30,30);}}catch(...){}
 

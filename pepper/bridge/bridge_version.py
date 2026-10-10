@@ -1,2 +1,2 @@
-VERSION = '0.1.9-naov4-test'
+VERSION = '0.1.10-naov4-test'
 VARIANT = 'NAO v4'

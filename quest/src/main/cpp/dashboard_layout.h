@@ -10,6 +10,7 @@ constexpr float x[]={960,960,960,0,20,0,960};
 constexpr float width[]={420,420,420,0,440,0,420};
 constexpr float groupY[]={64,356,806,0,794,0,660};
 constexpr float groupHeight[]={280,292,144,0,156,0,134};
+constexpr Rect motionResponse{x[0]+8,groupY[0]+244,width[0]-16,28};
 constexpr Rect fusion{480,64,460,736};
 constexpr Rect fusionImage{488,104,444,588};
 constexpr Rect cameras[]={{488,102,444,333},{488,455,444,333},{488,838,208,105}};
