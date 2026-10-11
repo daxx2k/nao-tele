@@ -810,8 +810,8 @@ void main(){
         // Keep long diagnostics inside the log panel at a readable font size.
         static std::string previous;static double changed=0;
         if(previous!=value){previous=value;changed=milliseconds();}
-        size_t pages=std::max(size_t(1),(lines.size()+2)/3),page=size_t((milliseconds()-changed)/8000)%pages;
-        for(size_t i=page*3;i<std::min(lines.size(),page*3+3);++i){text(lines[i],x,y,r,g,b,size);y+=18;}
+        size_t pages=std::max(size_t(1),lines.size()),page=size_t((milliseconds()-changed)/8000)%pages;
+        for(size_t i=page;i<std::min(lines.size(),page+1);++i){text(lines[i],x,y,r,g,b,size);y+=18;}
         if(pages>1)fitText("Log "+std::to_string(page+1)+"/"+std::to_string(pages),1250,1040,114,r,g,b,size);
     }
     void centeredText(const std::string& value,Card bounds,float r,float g,float b,float size){
@@ -917,7 +917,7 @@ void main(){
         std::string stats="Battery "+(batteryValid?std::to_string(int(std::lround(battery*100)))+"%":"--");
         if(fresh&&readings.contains("battery_temperature")&&readings["battery_temperature"].is_number())stats+=" / "+std::to_string(int(std::lround(dashboard_layout::displayTemperature(readings["battery_temperature"].get<float>(),fahrenheit))))+(fahrenheit?" F":" C");
         stats+="   |   Robot ";stats+=fresh&&t.contains("awake")&&t["awake"].is_boolean()?(t["awake"].get<bool>()?"AWAKE":"REST"):"--";
-        fitText(stats,870,22,350,.75f,.85f,.9f,ui_type::body);
+        fitText(stats,390,22,layoutEditing?365:790,.75f,.85f,.9f,ui_type::body);
         panel(270,22,100,22,.13f,.145f,.17f,7);if(batteryValid&&battery>0){auto color=dashboard_theme::batteryColor(battery);panel(273,25,94*battery,16,color[0],color[1],color[2],4);}
 
         const auto fused=dashboard_layout::fusion;surfaceCard(fused.x,fused.y,fused.w,fused.h);
@@ -1018,7 +1018,8 @@ void main(){
             }
             centeredText(title,r,caption[0],caption[1],caption[2],size);
         }
-        themedPanel(20,958,W-40,102,dashboard_theme::palette().surface,24);
+        auto statusBar=dashboard_layout::statusBar;
+        themedPanel(statusBar.x,statusBar.y,statusBar.w,statusBar.h,dashboard_theme::palette().surface,24);
         auto animation=state.value("animation",J::object());
         std::string motion=network->armed?"LIVE / B STOP":startFlow.active()?"STARTING / B CANCEL":"PAUSED / HOLD A + X";
         if(network->armed&&!state.value("gesture",std::string()).empty())motion="ANIMATION "+animation.value("name",std::string())+" / "+animation.value("stage",std::string())+" "+std::to_string(int(animation.value("elapsed",0.)))+"s";
@@ -1030,7 +1031,7 @@ void main(){
         if(menuOpen&&milliseconds()>=inputMessageUntil)message=items[menuIndex].detail+" | "+network->status();
         wrappedText(message,36,986,W-72,.95f,.8f,.55f,ui_type::secondary);
         std::string audio=network->ttsVoice?voiceStatus:network->talk?"MIC LIVE":network->audioStatus();
-        fitText(audio,36,1040,W-220,.6f,.85f,.86f,ui_type::secondary);
+        fitText(audio,36,1040,480,.6f,.85f,.86f,ui_type::secondary);
         if(milliseconds()-crtAt<320){float strength=.18f*std::max(0.f,1.f-float((milliseconds()-crtAt)/320.));drawCrt(crtBounds[0],crtBounds[1],crtBounds[2],crtBounds[3],strength);}
         std::string hovered;
         if(!pointerOnHelp&&pointerGrip.held&&pointerValid){int hit=menuHit(pointer.x,pointer.y);if(hit>=0){auto cmd=items[hit].action.value("cmd",std::string());if(cmd=="local_layout"||cmd=="local_help")hovered=items[hit].label;}}

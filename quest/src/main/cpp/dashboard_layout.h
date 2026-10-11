@@ -28,8 +28,9 @@ inline Rect voiceButton(bool phrase,int ordinal,int count){int rows=std::max(1,(
 constexpr float temperatureStrideY=50,temperatureTileHeight=46;
 inline Rect temperatureTile(int index){return {temperatures.x+10+(index%5)*84,temperatures.y+31+(index/5)*temperatureStrideY,80,temperatureTileHeight};}
 constexpr Rect headerLayout{1250,6,48,48},headerHelp{1306,6,48,48};
-constexpr Rect windowMove{550,6,240,44},windowPin{802,6,44,44};
-inline bool windowHover(float x,float y){return x>=530&&x<=866&&y>=0&&y<=56;}
+constexpr Rect statusBar{20,958,1360,48};
+constexpr Rect windowMove{550,1010,240,44},windowPin{802,1010,44,44};
+inline bool windowHover(float x,float y){return x>=530&&x<=866&&y>=995&&y<=1060;}
 inline float grabScale(float initial,float depth){return std::max(.65f,std::min(1.f,initial*std::exp(-depth*1.5f)));}
 constexpr Rect clearLaser{lidarCard.x+lidarCard.w-52,lidarCard.y+lidarCard.h-38,44,30};
 inline int temperatureAt(float px,float py){float dx=px-temperatures.x-10,dy=py-temperatures.y-31;if(dx<0||dy<0)return -1;int col=int(dx/84),row=int(dy/temperatureStrideY);if(col>=5||row>=4||dx-col*84>=80||dy-row*temperatureStrideY>=temperatureTileHeight)return -1;return row*5+col;}
