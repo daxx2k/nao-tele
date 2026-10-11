@@ -324,9 +324,9 @@ void main(){
         if(!avatarBytes||avatarEnv->GetArrayLength(avatarBytes)!=nao_led_avatar::width*nao_led_avatar::height*4)throw std::runtime_error("NAO artwork missing");
         jbyte* avatarPixels=avatarEnv->GetByteArrayElements(avatarBytes,nullptr);
         glGenTextures(1,&avatarTexture);glBindTexture(GL_TEXTURE_2D,avatarTexture);
-        glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,nao_led_avatar::width,nao_led_avatar::height,0,GL_RGBA,GL_UNSIGNED_BYTE,avatarPixels);
+        glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,nao_led_avatar::width,nao_led_avatar::height,0,GL_RGBA,GL_UNSIGNED_BYTE,avatarPixels);glGenerateMipmap(GL_TEXTURE_2D);
         avatarEnv->ReleaseByteArrayElements(avatarBytes,avatarPixels,JNI_ABORT);avatarEnv->DeleteLocalRef(avatarBytes);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
         glGenFramebuffers(1,&framebuffer);glGenVertexArrays(1,&vao);glGenBuffers(1,&vbo);glGenTextures(1,&texture);glBindTexture(GL_TEXTURE_2D,texture);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
@@ -934,27 +934,37 @@ void main(){
         XrPosef offset=identity();offset.position={panelWidth()*(.5f+.5f*HELP_W/W*HELP_SCALE)+.035f,0,0};
         return panel_anchor::compose(main,offset);
     }
-    void drawNaoLeds(){
+    void drawNaoLeds(int hover=-1){
         const auto card=dashboard_layout::ledAvatar;surfaceCard(card.x,card.y,card.w,card.h);
         KeepColors original(preserveColors);const auto palette=dashboard_theme::palette();
         const auto colours=nao_led_avatar::colours(ledSwatches);
         const char* uniforms[]={"avatarEyes","avatarChest","avatarEars","avatarHead","avatarFeet"};
         glUseProgram(program);for(int i=0;i<5;++i)glUniform3fv(glGetUniformLocation(program,uniforms[i]),1,colours[i].data());
-        const char* labels[]={"Head","Torso","Feet"};
-        // Three crops of the approved PNG retain its original artwork and UV-based LEDs.
-        const std::array<std::array<float,4>,3> crops{{{{.286f,.008f,.713f,.211f}},{{.208f,.210f,.794f,.490f}},{{.143f,.827f,.883f,.965f}}}};
-        int selected=ledTarget==1?1:ledTarget==4?2:0;
+        // Same approved image: tighter crops and full available artwork height.
+        const std::array<std::array<float,4>,3> crops{{{{.286f,.008f,.713f,.211f}},{{.125f,.210f,.875f,.395f}},{{.143f,.827f,.883f,.965f}}}};
         for(int i=0;i<3;++i){
             float left=card.x+i*card.w/3,zoneWidth=card.w/3;
-            auto ink=i==selected?palette.primary:palette.secondary;
-            text(labels[i],left+14,card.y+5,ink[0],ink[1],ink[2],ui_type::secondary);
-            if(i==selected)pixelLine(left+14,card.y+23,left+48,card.y+23,1.5f,palette.accent[0],palette.accent[1],palette.accent[2]);
             if(i)pixelLine(left,card.y+8,left,card.y+89,1,palette.border[0],palette.border[1],palette.border[2]);
-            const auto uv=crops[i];auto box=dashboard_layout::contain({left+10,card.y+22,zoneWidth-20,72},int((uv[2]-uv[0])*nao_led_avatar::width),int((uv[3]-uv[1])*nao_led_avatar::height));
+            const auto uv=crops[i];auto box=dashboard_layout::contain({left+6,card.y+3,zoneWidth-12,91},int((uv[2]-uv[0])*nao_led_avatar::width),int((uv[3]-uv[1])*nao_led_avatar::height));
             float x=box.x,y=box.y,w=box.w,h=box.h;glBindTexture(GL_TEXTURE_2D,avatarTexture);
             vertices({2*x/W-1,1-2*(y+h)/H,uv[0],uv[3],2*(x+w)/W-1,1-2*(y+h)/H,uv[2],uv[3],2*(x+w)/W-1,1-2*y/H,uv[2],uv[1],2*x/W-1,1-2*(y+h)/H,uv[0],uv[3],2*(x+w)/W-1,1-2*y/H,uv[2],uv[1],2*x/W-1,1-2*y/H,uv[0],uv[1]},6);
+
         }
         pixelLine(card.x+8,card.y+95,card.x+card.w-8,card.y+95,1,palette.border[0],palette.border[1],palette.border[2]);
+        const char* targets[]={"Eyes","Chest","Ears","Head","Feet"};
+        for(int i=0;i<5;++i){auto r=dashboard_layout::button(6,i,12);bool active=ledTarget==i;
+            themedPanel(r.x,r.y,r.w,r.h,active?palette.selected:hover==i?palette.border:palette.button,16);
+            const auto c=active?dashboard_theme::rgb(0xffffff):palette.primary;
+            centeredText(targets[i],{r.x,r.y,r.w,r.h},c[0],c[1],c[2],ui_type::body);
+        }
+        const float levels[]={0,.15f,.30f,.50f,.70f,.85f,1};
+        for(int i=0;i<7;++i){auto r=dashboard_layout::button(6,i+5,12);float cx=r.x+r.w*.5f,cy=r.y+r.h*.5f,d=28;
+            bool active=ledSwatches[ledTarget]==i;
+            if(active||hover==i+5){auto c=active?palette.primary:palette.secondary;panel(cx-d*.5f-3,cy-d*.5f-3,d+6,d+6,c[0],c[1],c[2],(d+6)*.5f);panel(cx-d*.5f-1,cy-d*.5f-1,d+2,d+2,palette.surface[0],palette.surface[1],palette.surface[2],(d+2)*.5f);}
+            auto c=dashboard_theme::rgb(ledTarget==2?0x4388ff:ledTarget==3?0xffffff:ledColors[i]);float level=(ledTarget==2||ledTarget==3)?levels[i]:1;
+            panel(cx-d*.5f,cy-d*.5f,d,d,c[0]*level,c[1]*level,c[2]*level,d*.5f);
+            if(level==0||((ledTarget!=2&&ledTarget!=3)&&ledColors[i]==0))pixelLine(cx-8,cy+8,cx+8,cy-8,1.5f,palette.secondary[0],palette.secondary[1],palette.secondary[2]);
+        }
     }
     void drawHelp(){
         panel(12,8,HELP_W-24,H-16,.055f,.09f,.14f,24);
@@ -1022,7 +1032,10 @@ void main(){
             vertices({2*x/W-1,1-2*(y+h)/H,0,1,2*(x+w)/W-1,1-2*(y+h)/H,1,1,2*(x+w)/W-1,1-2*y/H,1,0,2*x/W-1,1-2*(y+h)/H,0,1,2*(x+w)/W-1,1-2*y/H,1,0,2*x/W-1,1-2*y/H,0,0},5);
             glUniform1f(glGetUniformLocation(program,"cameraRadius"),0);
         }
-        drawNaoLeds();
+        int appearanceHover=-1;
+        if(menuOpen){auto actions=menuActions();if(menuIndex>=0&&menuIndex<int(actions.size())&&menuGroup(actions[menuIndex])==6){auto action=actions[menuIndex].action;appearanceHover=action.value("cmd",std::string())=="local_led_target"?action.value("target",0):5+action.value("swatch",0);}}
+        if(pointerGrip.held&&pointerValid&&!pointerOnHelp)for(int i=0;i<12;++i){auto r=dashboard_layout::button(6,i,12);if(pointer.x>=r.x&&pointer.x<r.x+r.w&&pointer.y>=r.y&&pointer.y<r.y+r.h)appearanceHover=i;}
+        drawNaoLeds(appearanceHover);
         drawComparison(tracking);
         const auto thermal=dashboard_layout::temperatures;surfaceCard(thermal.x,thermal.y,thermal.w,thermal.h);text("Joint temperatures",thermal.x+23,thermal.y+7,.85f,.88f,.93f,ui_type::heading);
         const char* names[]={"HeadYaw","HeadPitch","LHipRoll","LHipPitch","LKneePitch","LShoulderPitch","LShoulderRoll","LElbowYaw","LElbowRoll","LWristYaw","RShoulderPitch","RShoulderRoll","RElbowYaw","RElbowRoll","RWristYaw","LHand","RHand","RHipRoll","RHipPitch","RKneePitch"};
@@ -1062,7 +1075,7 @@ void main(){
         if(layoutEditing){for(int i=0;i<floating_layout::count;++i){auto r=floating_layout::cards[i];pixelLine(r.x+5,r.y+2,r.x+r.w-5,r.y+2,3,.25f,.65f,1);if(i!=7&&i!=8)panel(r.x+r.w*.5f-20,r.y+4,40,3,.4f,.75f,1,1.5f);}}
         auto items=menuActions();menuIndex=std::max(0,std::min(menuIndex,int(items.size())-1));
         const std::string playingAnimation=state.value("gesture",std::string());
-        for(int i=0;i<(int)items.size();++i){auto r=menuRect(i,items);bool selected=(menuOpen||pointerGrip.held)&&i==menuIndex&&(!pointerGrip.held||(pointerValid&&menuHit(pointer.x,pointer.y)==i));int g=menuGroup(items[i]);bool stop=items[i].action.value("cmd",std::string())=="local_stop";
+        for(int i=0;i<(int)items.size();++i){auto r=menuRect(i,items);bool selected=(menuOpen||pointerGrip.held)&&i==menuIndex&&(!pointerGrip.held||(pointerValid&&menuHit(pointer.x,pointer.y)==i));int g=menuGroup(items[i]);if(g==6)continue;bool stop=items[i].action.value("cmd",std::string())=="local_stop";
             const auto command=items[i].action.value("cmd",std::string());
             bool animationButton=command=="gesture";
             bool playingButton=animationButton&&!playingAnimation.empty()&&items[i].action.value("name",std::string())==playingAnimation;

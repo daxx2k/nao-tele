@@ -1,0 +1,47 @@
+// Native offscreen harness. App UI and shader are injected verbatim by render_appearance_preview.py.
+#include <EGL/egl.h>
+#include <GLES3/gl3.h>
+#include <cstdio>
+#include <vector>
+#include <cstdlib>
+#include <cassert>
+struct XrVector2f {float x,y;};
+#include "../quest/src/main/cpp/dashboard_layout.h"
+const char* fragment=@@FRAGMENT@@;
+GLuint shader(GLenum type,const char* source){GLuint s=glCreateShader(type);glShaderSource(s,1,&source,nullptr);glCompileShader(s);GLint ok=0;glGetShaderiv(s,GL_COMPILE_STATUS,&ok);if(!ok){char log[4096];glGetShaderInfoLog(s,4096,nullptr,log);std::fprintf(stderr,"%s",log);exit(2);}return s;}
+
+#include "../quest/src/main/cpp/ui_font.h"
+#include "../quest/src/main/cpp/nao_led_avatar.h"
+#include <string>
+#include <cmath>
+#include <algorithm>
+#include <array>
+@@UI_TYPES@@
+struct Preview {
+    using Card=dashboard_layout::Rect;
+@@CANVAS@@
+    GLuint program=0,vao=0,vbo=0,fontTexture=0,avatarTexture=0;
+    bool preserveColors=false;float drawAlpha=1,drawScaleX=1,drawOffsetX=0,drawScaleY=1,drawOffsetY=0;
+    int ledTarget=0;std::array<int,5> ledSwatches{{3,2,6,6,5}};
+@@LED_COLOURS@@
+    struct KeepColors {bool& flag;bool previous;explicit KeepColors(bool& value,bool enabled=true):flag(value),previous(value){flag=previous||enabled;}~KeepColors(){flag=previous;}};
+@@RENDER_METHODS@@
+};
+
+int main(){
+ EGLDisplay d=eglGetDisplay(EGL_DEFAULT_DISPLAY);assert(eglInitialize(d,nullptr,nullptr));EGLint attributes[]={EGL_SURFACE_TYPE,EGL_PBUFFER_BIT,EGL_RENDERABLE_TYPE,EGL_OPENGL_ES3_BIT,EGL_RED_SIZE,8,EGL_GREEN_SIZE,8,EGL_BLUE_SIZE,8,EGL_ALPHA_SIZE,8,EGL_NONE};EGLConfig config;EGLint count;assert(eglChooseConfig(d,attributes,&config,1,&count)&&count==1);
+ EGLint size[]={EGL_WIDTH,Preview::W,EGL_HEIGHT,Preview::H,EGL_NONE};auto surface=eglCreatePbufferSurface(d,config,size);EGLint ca[]={EGL_CONTEXT_CLIENT_VERSION,3,EGL_NONE};auto context=eglCreateContext(d,config,EGL_NO_CONTEXT,ca);assert(eglMakeCurrent(d,surface,surface,context));
+ const char* vertex="#version 300 es\nlayout(location=0) in vec2 p;layout(location=1) in vec2 uv;out vec2 t;void main(){gl_Position=vec4(p,0,1);t=uv;}";
+ GLuint program=glCreateProgram();glAttachShader(program,shader(GL_VERTEX_SHADER,vertex));glAttachShader(program,shader(GL_FRAGMENT_SHADER,fragment));glLinkProgram(program);GLint ok;glGetProgramiv(program,GL_LINK_STATUS,&ok);assert(ok);glUseProgram(program);
+ FILE* in=std::fopen("/data/local/tmp/telenao-preview/avatar.rgba","rb");assert(in);std::vector<unsigned char> data(1024*1536*4);assert(std::fread(data.data(),1,data.size(),in)==data.size());std::fclose(in);GLuint texture;glGenTextures(1,&texture);glBindTexture(GL_TEXTURE_2D,texture);glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,1024,1536,0,GL_RGBA,GL_UNSIGNED_BYTE,data.data());glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+ glViewport(0,0,Preview::W,Preview::H);glClearColor(.2,.2,.2,1);glClear(GL_COLOR_BUFFER_BIT);glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+ glUniform1i(glGetUniformLocation(program,"image"),0);glUniform1i(glGetUniformLocation(program,"textured"),6);glUniform1f(glGetUniformLocation(program,"canvasWidth"),Preview::W);glUniform4f(glGetUniformLocation(program,"color"),1,1,1,1);
+ glUniform3f(glGetUniformLocation(program,"avatarEyes"),1,.31,.31);glUniform3f(glGetUniformLocation(program,"avatarChest"),.27,.94,.67);glUniform3f(glGetUniformLocation(program,"avatarEars"),.26,.53,1);glUniform3f(glGetUniformLocation(program,"avatarHead"),1,1,1);glUniform3f(glGetUniformLocation(program,"avatarFeet"),.63,.31,1);
+ glGenerateMipmap(GL_TEXTURE_2D);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
+ Preview renderer;renderer.program=program;renderer.avatarTexture=texture;glGenVertexArrays(1,&renderer.vao);glGenBuffers(1,&renderer.vbo);
+ FILE* fontFile=std::fopen("/data/local/tmp/telenao-preview/ui_font.bin","rb");assert(fontFile);std::vector<unsigned char> font(UI_FONT_WIDTH*UI_FONT_HEIGHT);assert(std::fread(font.data(),1,font.size(),fontFile)==font.size());std::fclose(fontFile);
+ glGenTextures(1,&renderer.fontTexture);glBindTexture(GL_TEXTURE_2D,renderer.fontTexture);glPixelStorei(GL_UNPACK_ALIGNMENT,1);glTexImage2D(GL_TEXTURE_2D,0,GL_R8,UI_FONT_WIDTH,UI_FONT_HEIGHT,0,GL_RED,GL_UNSIGNED_BYTE,font.data());glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+ renderer.drawNaoLeds();
+ assert(glGetError()==GL_NO_ERROR);
+ auto bounds=dashboard_layout::ledAvatar;int width=int(bounds.w),height=int(bounds.h);std::vector<unsigned char> pixels(width*height*4);glReadPixels(int(bounds.x),Preview::H-int(bounds.y+bounds.h),width,height,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());FILE* out=std::fopen("/data/local/tmp/telenao-preview/panel.ppm","wb");assert(out);std::fprintf(out,"P6\n%d %d\n255\n",width,height);for(int row=height-1;row>=0;--row)for(int col=0;col<width;++col)std::fwrite(pixels.data()+(row*width+col)*4,1,3,out);std::fclose(out);std::puts("PASS actual Quest GPU shader compile, link, draw and LED overlay");
+}
