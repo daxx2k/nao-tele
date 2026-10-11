@@ -26,6 +26,7 @@
 #include "start_flow.h"
 #include "deferred_gesture.h"
 #include "native_action_flow.h"
+#include "nao_led_avatar.h"
 #include "panel_layout.h"
 #include "panel_anchor.h"
 #include "pointer_ray.h"
@@ -68,7 +69,7 @@ class App {
     PFN_xrLocateBodyJointsFB locateBody=nullptr;
     PFN_xrDestroyBodyTrackerFB destroyBody=nullptr;
     EGLDisplay display=EGL_NO_DISPLAY; EGLContext context=EGL_NO_CONTEXT; EGLSurface surface=EGL_NO_SURFACE;
-    GLuint framebuffer=0,texture=0,fontTexture=0,program=0,vbo=0,vao=0;float drawAlpha=1;
+    GLuint framebuffer=0,texture=0,fontTexture=0,avatarTexture=0,program=0,vbo=0,vao=0;float drawAlpha=1;
     std::vector<XrSwapchainImageOpenGLESKHR> images;
     std::unique_ptr<Network> network;
     std::string appVersion="unknown";
@@ -249,6 +250,23 @@ class App {
         const char* frag=R"glsl(#version 300 es
 precision highp float;in vec2 t;uniform sampler2D image;uniform vec4 color;uniform int textured;uniform float canvasOffset;uniform float canvasWidth;
 uniform vec4 cameraBounds;uniform float cameraRadius;uniform float cameraFade;uniform float crtTime;uniform float crtStrength;uniform sampler2D secondImage;uniform vec4 seamTop;uniform vec4 seamBottom;out vec4 o;
+uniform vec3 avatarEyes,avatarChest,avatarEars,avatarHead,avatarFeet;
+float ledRing(vec2 uv,vec2 centre,vec2 radius,float inner){float d=length((uv-centre)/radius);return (1.0-smoothstep(.95,1.05,d))*smoothstep(inner-.05,inner+.05,d);}
+vec3 ledTint(vec3 base,vec3 led,float mask){float level=max(max(led.r,led.g),led.b);vec3 dark=base*.28;return mix(base,mix(dark,led,clamp(level*1.2,0.0,1.0)),mask);}
+vec4 avatarSample(vec2 uv){
+ vec4 c=texture(image,uv);
+ float eyes=max(ledRing(uv,vec2(.422,.129),vec2(.037,.025),.56),ledRing(uv,vec2(.574,.129),vec2(.037,.025),.56));
+ c.rgb=ledTint(c.rgb,avatarEyes,eyes);
+ float ears=max(ledRing(uv,vec2(.310,.129),vec2(.014,.033),.0),ledRing(uv,vec2(.687,.129),vec2(.014,.033),.0));
+ c.rgb=ledTint(c.rgb,avatarEars,ears);
+ float head=ledRing(uv,vec2(.500,.023),vec2(.053,.017),.64)*smoothstep(.007,.013,uv.y);
+ c.rgb=ledTint(c.rgb,avatarHead,head);
+ float chest=ledRing(uv,vec2(.499,.331),vec2(.047,.032),.82);
+ c.rgb=ledTint(c.rgb,avatarChest,chest);
+ float feet=max(ledRing(uv,vec2(.284,.873),vec2(.061,.025),.83),ledRing(uv,vec2(.714,.873),vec2(.061,.025),.83))*(1.0-smoothstep(.870,.876,uv.y));
+ c.rgb=ledTint(c.rgb,avatarFeet,feet);
+ return c;
+}
 vec4 cameraSample(sampler2D source,vec2 uv){
  vec2 pixel=1.0/vec2(textureSize(source,0));vec4 centre=texture(source,uv);
  vec3 left=texture(source,uv-vec2(pixel.x,0.0)).rgb,right=texture(source,uv+vec2(pixel.x,0.0)).rgb;
@@ -280,6 +298,7 @@ void main(){
   vec4 top=seamSample(image,a,blur),bottom=seamSample(secondImage,b,blur);
   bottom.rgb=pow(max(bottom.rgb,vec3(0.0)),vec3(.92));o=mix(top,bottom,blend);
  }else if(textured==3){vec4 c=cameraSample(image,t);o=vec4(pow(max(c.rgb,vec3(0.0)),vec3(0.92)),c.a);}
+ else if(textured==6){o=avatarSample(t);}
  else{o=textured==1?(cameraRadius>0.0?cameraSample(image,t):texture(image,t)):textured==2?vec4(color.rgb,color.a*texture(image,t).r):color;}
  if((textured==1||textured==3||textured==5)&&cameraRadius>0.0){
   vec2 p=vec2(gl_FragCoord.x,1060.0-gl_FragCoord.y);
@@ -296,6 +315,17 @@ void main(){
         if(!fontAsset||AAsset_getLength(fontAsset)!=UI_FONT_WIDTH*UI_FONT_HEIGHT)throw std::runtime_error("UI font asset missing");
         glGenTextures(1,&fontTexture);glBindTexture(GL_TEXTURE_2D,fontTexture);glPixelStorei(GL_UNPACK_ALIGNMENT,1);
         glTexImage2D(GL_TEXTURE_2D,0,GL_R8,UI_FONT_WIDTH,UI_FONT_HEIGHT,0,GL_RED,GL_UNSIGNED_BYTE,AAsset_getBuffer(fontAsset));AAsset_close(fontAsset);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+        JNIEnv* avatarEnv=nullptr;app->activity->vm->AttachCurrentThread(&avatarEnv,nullptr);
+        jclass avatarClass=avatarEnv->GetObjectClass(app->activity->clazz);
+        auto avatarBytes=(jbyteArray)avatarEnv->CallObjectMethod(app->activity->clazz,avatarEnv->GetMethodID(avatarClass,"loadNaoAvatar","()[B"));
+        avatarEnv->DeleteLocalRef(avatarClass);
+        if(!avatarBytes||avatarEnv->GetArrayLength(avatarBytes)!=nao_led_avatar::width*nao_led_avatar::height*4)throw std::runtime_error("NAO artwork missing");
+        jbyte* avatarPixels=avatarEnv->GetByteArrayElements(avatarBytes,nullptr);
+        glGenTextures(1,&avatarTexture);glBindTexture(GL_TEXTURE_2D,avatarTexture);
+        glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,nao_led_avatar::width,nao_led_avatar::height,0,GL_RGBA,GL_UNSIGNED_BYTE,avatarPixels);
+        avatarEnv->ReleaseByteArrayElements(avatarBytes,avatarPixels,JNI_ABORT);avatarEnv->DeleteLocalRef(avatarBytes);
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
         glGenFramebuffers(1,&framebuffer);glGenVertexArrays(1,&vao);glGenBuffers(1,&vbo);glGenTextures(1,&texture);glBindTexture(GL_TEXTURE_2D,texture);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
@@ -904,6 +934,15 @@ void main(){
         XrPosef offset=identity();offset.position={panelWidth()*(.5f+.5f*HELP_W/W*HELP_SCALE)+.035f,0,0};
         return panel_anchor::compose(main,offset);
     }
+    void drawNaoLeds(){
+        const auto card=dashboard_layout::ledAvatar;surfaceCard(card.x,card.y,card.w,card.h);
+        const float h=card.h-4,w=h*nao_led_avatar::width/nao_led_avatar::height,x=card.x+(card.w-w)*.5f,y=card.y+2;
+        const auto colours=nao_led_avatar::colours(ledSwatches);
+        const char* names[]={"avatarEyes","avatarChest","avatarEars","avatarHead","avatarFeet"};
+        glUseProgram(program);for(int i=0;i<5;++i)glUniform3fv(glGetUniformLocation(program,names[i]),1,colours[i].data());
+        glBindTexture(GL_TEXTURE_2D,avatarTexture);
+        vertices({2*x/W-1,1-2*(y+h)/H,0,1,2*(x+w)/W-1,1-2*(y+h)/H,1,1,2*(x+w)/W-1,1-2*y/H,1,0,2*x/W-1,1-2*(y+h)/H,0,1,2*(x+w)/W-1,1-2*y/H,1,0,2*x/W-1,1-2*y/H,0,0},6);
+    }
     void drawHelp(){
         panel(12,8,HELP_W-24,H-16,.055f,.09f,.14f,24);
         text("Quick help",36,32,.92f,.97f,1,2.6f);
@@ -970,6 +1009,7 @@ void main(){
             vertices({2*x/W-1,1-2*(y+h)/H,0,1,2*(x+w)/W-1,1-2*(y+h)/H,1,1,2*(x+w)/W-1,1-2*y/H,1,0,2*x/W-1,1-2*(y+h)/H,0,1,2*(x+w)/W-1,1-2*y/H,1,0,2*x/W-1,1-2*y/H,0,0},5);
             glUniform1f(glGetUniformLocation(program,"cameraRadius"),0);
         }
+        drawNaoLeds();
         drawComparison(tracking);
         const auto thermal=dashboard_layout::temperatures;surfaceCard(thermal.x,thermal.y,thermal.w,thermal.h);text("Joint temperatures",thermal.x+23,thermal.y+7,.85f,.88f,.93f,ui_type::heading);
         const char* names[]={"HeadYaw","HeadPitch","LHipRoll","LHipPitch","LKneePitch","LShoulderPitch","LShoulderRoll","LElbowYaw","LElbowRoll","LWristYaw","RShoulderPitch","RShoulderRoll","RElbowYaw","RElbowRoll","RWristYaw","LHand","RHand","RHipRoll","RHipPitch","RKneePitch"};
@@ -1185,7 +1225,7 @@ void main(){
         glBindFramebuffer(GL_FRAMEBUFFER,framebuffer);glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,images[index].image,0);glViewport(0,0,W,H);glClearColor(0,0,0,0);glClear(GL_COLOR_BUFFER_BIT);glDisable(GL_DEPTH_TEST);glEnable(GL_BLEND);glBlendFuncSeparate(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);glBindTexture(GL_TEXTURE_2D,texture);
         glUseProgram(program);glUniform1f(glGetUniformLocation(program,"canvasOffset"),0);glUniform1f(glGetUniformLocation(program,"canvasWidth"),W);
         drawStudio(tracking);
-        if(dashboardPreview&&network->connected&&network->lastSnapshot>0){
+        if(dashboardPreview){
             dashboardPreview=false;std::vector<unsigned char> pixels(W*H*4);glReadPixels(0,0,W,H,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
             std::string path=std::string(app->activity->externalDataPath)+"/dashboard-preview.ppm";
             if(FILE* out=std::fopen(path.c_str(),"wb")){std::fprintf(out,"P6\n%d %d\n255\n",W,H);for(int y=H-1;y>=0;--y)for(int x=0;x<W;++x)std::fwrite(pixels.data()+(y*W+x)*4,1,3,out);std::fclose(out);__android_log_print(ANDROID_LOG_INFO,"TeleNao","Dashboard preview saved");}
@@ -1261,7 +1301,7 @@ public:
             if(running&&!app->destroyRequested)frame();
         }
     }
-    ~App(){if(network)network->stop();if(body&&destroyBody)destroyBody(body);if(passthroughLayer&&destroyPassthroughLayer)destroyPassthroughLayer(passthroughLayer);if(passthrough&&destroyPassthrough)destroyPassthrough(passthrough);if(raySwapchain)xrDestroySwapchain(raySwapchain);if(swapchain)xrDestroySwapchain(swapchain);if(aimSpace)xrDestroySpace(aimSpace);if(local)xrDestroySpace(local);if(viewSpace)xrDestroySpace(viewSpace);if(session)xrDestroySession(session);if(actionSet)xrDestroyActionSet(actionSet);if(instance)xrDestroyInstance(instance);if(display!=EGL_NO_DISPLAY){eglMakeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);if(context!=EGL_NO_CONTEXT)eglDestroyContext(display,context);if(surface!=EGL_NO_SURFACE)eglDestroySurface(display,surface);eglTerminate(display);}}
+    ~App(){if(network)network->stop();if(body&&destroyBody)destroyBody(body);if(passthroughLayer&&destroyPassthroughLayer)destroyPassthroughLayer(passthroughLayer);if(passthrough&&destroyPassthrough)destroyPassthrough(passthrough);if(raySwapchain)xrDestroySwapchain(raySwapchain);if(swapchain)xrDestroySwapchain(swapchain);if(aimSpace)xrDestroySpace(aimSpace);if(local)xrDestroySpace(local);if(viewSpace)xrDestroySpace(viewSpace);if(session)xrDestroySession(session);if(actionSet)xrDestroyActionSet(actionSet);if(instance)xrDestroyInstance(instance);if(display!=EGL_NO_DISPLAY){if(avatarTexture)glDeleteTextures(1,&avatarTexture);eglMakeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);if(context!=EGL_NO_CONTEXT)eglDestroyContext(display,context);if(surface!=EGL_NO_SURFACE)eglDestroySurface(display,surface);eglTerminate(display);}}
 };
 // NativeActivity waits synchronously for PAUSE/STOP/DESTROY acknowledgements.
 // OpenXR can end first; keep consuming Android commands until destruction.

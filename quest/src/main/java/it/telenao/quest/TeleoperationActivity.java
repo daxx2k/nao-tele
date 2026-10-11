@@ -9,6 +9,19 @@ import org.json.JSONObject;
 
 /** The library entry is the immersive activity, so Horizon grants VR focus. */
 public class TeleoperationActivity extends NativeActivity {
+    /** Decode the approved artwork once at graphics startup, never in the frame loop. */
+    public byte[] loadNaoAvatar(){
+        try(java.io.InputStream input=getAssets().open("nao_led_avatar.png")){
+            android.graphics.BitmapFactory.Options options=new android.graphics.BitmapFactory.Options();options.inScaled=false;
+            android.graphics.Bitmap bitmap=android.graphics.BitmapFactory.decodeStream(input,null,options);
+            if(bitmap==null)return null;
+            if(bitmap.getWidth()!=1024||bitmap.getHeight()!=1536){bitmap.recycle();return null;}
+            int[] pixels=new int[1024*1536];bitmap.getPixels(pixels,0,1024,0,0,1024,1536);bitmap.recycle();
+            byte[] rgba=new byte[pixels.length*4];
+            for(int i=0;i<pixels.length;++i){int p=pixels[i],offset=i*4;rgba[offset]=(byte)(p>>16);rgba[offset+1]=(byte)(p>>8);rgba[offset+2]=(byte)p;rgba[offset+3]=(byte)(p>>>24);}
+            return rgba;
+        }catch(java.io.IOException e){return null;}
+    }
     public String getAppVersion(){return it.telenao.ui.VersionInfo.label(this);}
     private android.speech.SpeechRecognizer recognizer;
     private NaturalVoice naturalVoice;

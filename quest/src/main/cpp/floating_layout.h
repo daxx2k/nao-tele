@@ -7,12 +7,12 @@ namespace floating_layout {
 using dashboard_layout::Rect;
 constexpr int count=10;
 constexpr Rect groupCard(int g){return {dashboard_layout::x[g],dashboard_layout::groupY[g],dashboard_layout::width[g],dashboard_layout::groupHeight[g]};}
-constexpr std::array<Rect,count> cards{{dashboard_layout::fusion,dashboard_layout::comparison,dashboard_layout::temperatures,groupCard(4),groupCard(0),groupCard(1),groupCard(6),{20,0,1360,56},{20,958,1360,102},groupCard(2)}};
+constexpr std::array<Rect,count> cards{{dashboard_layout::visionPanel,dashboard_layout::comparison,dashboard_layout::temperatures,groupCard(4),groupCard(0),groupCard(1),groupCard(6),{20,0,1360,56},{20,958,1360,102},groupCard(2)}};
 inline XrPosef initial(int i){auto r=cards.at(i);return {{0,0,0,1},{(r.x+r.w*.5f)/1400.f-.5f,(.5f-(r.y+r.h*.5f)/1060.f)*1060.f/1400.f,0}};}
 inline void migrateDefault(int i,XrPosef& p,float scale){
-    float oldCentre=i==5?502.f:i==6?727.f:i==9?878.f:-1.f;
+    float oldCentre=i==0?432.f:i==5?502.f:i==6?727.f:i==9?878.f:-1.f;
     if(oldCentre<0)return;
-    if(std::abs(p.position.x-(1170.f/1400.f-.5f))<1e-5f&&std::abs(p.position.y-(530.f-oldCentre)/1400.f)<1e-5f&&std::abs(p.position.z)<1e-5f&&std::abs(p.orientation.x)+std::abs(p.orientation.y)+std::abs(p.orientation.z)<1e-5f&&std::abs(std::abs(p.orientation.w)-1)<1e-5f&&std::abs(scale-1)<1e-5f)p=initial(i);
+    if(std::abs(p.position.x-((i==0?710.f:1170.f)/1400.f-.5f))<1e-5f&&std::abs(p.position.y-(530.f-oldCentre)/1400.f)<1e-5f&&std::abs(p.position.z)<1e-5f&&std::abs(p.orientation.x)+std::abs(p.orientation.y)+std::abs(p.orientation.z)<1e-5f&&std::abs(std::abs(p.orientation.w)-1)<1e-5f&&std::abs(scale-1)<1e-5f)p=initial(i);
 }
 // Positions are stored in workspace-width units so global resizing keeps the arrangement.
 inline XrPosef world(XrPosef root,XrPosef relative,float width){relative.position.x*=width;relative.position.y*=width;relative.position.z*=width;return panel_anchor::compose(root,relative);}

@@ -1,5 +1,1 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-<path android:fillColor="#102740" android:pathData="M0,0h108v108h-108z"/>
-<path android:fillColor="#EDF5FF" android:pathData="M39,16h30v23h-30z M38,45h32v27h-32z M25,45h9v29h-9z M74,45h9v29h-9z M38,77h12v17h-12z M58,77h12v17h-12z"/>
-<path android:fillColor="#48B9EF" android:pathData="M43,23h8v7h-8z M57,23h8v7h-8z M48,51h12v12h-12z M33,92h20v5h-20z M55,92h20v5h-20z"/>
-</vector>
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@drawable/telenao_icon" android:gravity="fill" android:filter="true"/>

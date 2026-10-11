@@ -12,6 +12,7 @@ constexpr float groupY[]={64,512,356,0,794,0,816};
 constexpr float groupHeight[]={280,292,144,0,156,0,134};
 constexpr Rect motionResponse{x[0]+8,groupY[0]+244,width[0]-16,28};
 constexpr Rect fusion{480,64,460,736};
+constexpr Rect visionPanel{480,64,460,886},ledAvatar{480,812,460,138};
 constexpr Rect fusionImage{488,104,444,588};
 constexpr Rect cameras[]={{488,102,444,333},{488,455,444,333},{488,838,208,105}};
 constexpr float cameraGap=20,cameraBlendPixels=8,cameraCornerRadius=8;
