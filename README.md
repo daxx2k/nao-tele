@@ -1,5 +1,7 @@
 # TeleNao
 
+[![Buy me a coffee](https://img.shields.io/badge/Buy_me_a_coffee-Support_my_projects-FFDD00?logo=buymeacoffee&logoColor=000000)](https://buymeacoffee.com/daxx2k)
+
 Control a NAO humanoid from Meta Quest: mirror your head, arms and hands, see through its two cameras, walk with the controllers, and speak through the robot. TeleNao also offers a desktop operator console for speech, LEDs and native posture presets.
 
 Standalone NAO app with Android application ID `it.telenao.quest`, private settings and a robot service. Origin attribution is retained in NOTICE.
