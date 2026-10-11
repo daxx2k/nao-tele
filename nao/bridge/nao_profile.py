@@ -3,7 +3,7 @@ LOWER_JOINTS=['LHipYawPitch','LHipRoll','LHipPitch','LKneePitch','LAnklePitch','
               'RHipYawPitch','RHipRoll','RHipPitch','RKneePitch','RAnklePitch','RAnkleRoll']
 HEAD_PITCH_LIMITS=(-.25,.20)
 POSTURES=('StandInit','Stand','Sit','Crouch')
-POSTURE_SPEED=.5
+POSTURE_SPEED=1.0
 COMPATIBLE_REVISIONS=('VERSION_40','VERSION_50','VERSION_60')
 
 def compatible_firmware(version):

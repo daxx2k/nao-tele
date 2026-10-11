@@ -208,13 +208,14 @@ class NaoTests(unittest.TestCase):
         svc=self.service();r=svc.state.robot=self.robot();svc.state.prepare_cancelled=True
         svc._prepare_posture('StandInit')
         r.motion.wakeUp.assert_not_called();r.posture.goToPosture.assert_not_called();self.assertFalse(svc.state.preparing)
-    def test_native_preset_uses_standard_speed_and_stays_disarmed(self):
-        svc=self.service();r=svc.state.robot=self.robot();r.life.getState.return_value=Future('disabled')
-        r.motion.setStiffnesses.return_value=Future();r.posture.goToPosture.return_value=Future(True)
-        r.posture.getPosture.return_value=Future('Sit')
-        svc._prepare_posture('Sit')
-        r.posture.goToPosture.assert_called_once_with('Sit',.5,_async=True)
-        self.assertFalse(svc.state.armed);self.assertFalse(svc.state.preparing)
+    def test_all_native_presets_use_full_speed_and_stay_disarmed(self):
+        for name in ('StandInit','Stand','Sit','Crouch'):
+            svc=self.service();r=svc.state.robot=self.robot();r.life.getState.return_value=Future('disabled')
+            r.motion.setStiffnesses.return_value=Future();r.motion.wakeUp.return_value=Future()
+            r.posture.goToPosture.return_value=Future(True);r.posture.getPosture.return_value=Future(name)
+            svc._prepare_posture(name)
+            r.posture.goToPosture.assert_called_once_with(name,1.0,_async=True)
+            self.assertFalse(svc.state.armed);self.assertFalse(svc.state.preparing)
     def test_failed_native_posture_is_reported_and_stays_disarmed(self):
         svc=self.service();r=svc.state.robot=self.robot();r.life.getState.return_value=Future('disabled')
         r.motion.setStiffnesses.return_value=Future();r.posture.goToPosture.return_value=Future(False)
@@ -229,7 +230,7 @@ class NaoTests(unittest.TestCase):
             r.posture.goToPosture.return_value=Future(True)
             r.posture.getPosture.return_value=Future('Sit')
             svc._prepare_posture('Sit')
-            r.posture.goToPosture.assert_called_once_with('Sit',.5,_async=True)
+            r.posture.goToPosture.assert_called_once_with('Sit',1.0,_async=True)
             r.session.service.return_value.getListData.assert_not_called()
             self.assertEqual(svc.state.prepare_message,'Posture Sit ready / press START')
             self.assertFalse(svc.state.armed)
@@ -246,14 +247,14 @@ class NaoTests(unittest.TestCase):
         r.motion.wakeUp.return_value=Future();r.posture.goToPosture.return_value=Future(True)
         r.motion.setStiffnesses.return_value=Future()
         svc._prepare_motion()
-        r.posture.goToPosture.assert_called_once_with('StandInit',.5,_async=True)
+        r.posture.goToPosture.assert_called_once_with('StandInit',1.0,_async=True)
         self.assertEqual(svc.state.prepare_message,'Posture ready.');self.assertFalse(svc.state.armed)
     def test_start_preparation_restores_low_torso_even_if_family_is_standing(self):
         svc=self.service();r=svc.state.robot=self.robot();r.life.getState.return_value=Future('disabled')
         r.motion.getPosition.side_effect=[Future([0.,0.,.23,0.,0.,0.]),Future([0.,0.,.31,0.,0.,0.])]
         r.motion.wakeUp.return_value=Future();r.posture.goToPosture.return_value=Future(True)
         r.motion.setStiffnesses.return_value=Future()
-        svc._prepare_motion();r.posture.goToPosture.assert_called_once_with('StandInit',.5,_async=True)
+        svc._prepare_motion();r.posture.goToPosture.assert_called_once_with('StandInit',1.0,_async=True)
         self.assertEqual(svc.state.prepare_message,'Posture ready.')
     def test_start_preparation_skips_pose_if_already_standing(self):
         svc=self.service();r=svc.state.robot=self.robot();r.life.getState.return_value=Future('disabled')
