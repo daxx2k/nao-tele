@@ -6,11 +6,11 @@ Standalone NAO app with Android application ID `it.telenao.quest`, private setti
 
 ## Download
 
-Experimental release **0.1.19-nao-test**. Use with an attentive operator and space around the robot.
+Experimental release **0.1.20-nao-test**. Use with an attentive operator and space around the robot.
 
 | Package | Download |
 |---|---|
-| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.19-nao-test/TeleNao-Quest.apk) |
+| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.20-nao-test/TeleNao-Quest.apk) |
 | APK, installer and instructions | [Installation bundle](https://github.com/daxx2k/nao-tele/releases) |
 | Source bundle and checksums | [Release assets](https://github.com/daxx2k/nao-tele/releases) |
 
@@ -38,7 +38,7 @@ Requires owner SSH access and a reachable network connection between NAO and Que
 - Remote voice, robot TTS, English/Italian phrases, offline Cori/Piper synthesis on Quest, microphone listening and volume.
 - Eyes, chest and feet RGB LEDs; ears and head intensity controls. Native arm-only speech gestures are off by default.
 - Left/right kicks use isolated original timelines from the installed Soccer package. Hello, Wave, Dance and Tai Chi run through their original installed NAOqi behaviors. Availability depends on packages installed on the robot; no proprietary timelines are bundled. B cancels; standing completion resumes through the normal START flow.
-- Battery, temperature and motion information, movable panels, saved layouts, discovery and a connection screen without scrolling. The bottom grab handle and pin stay visible. A full-body NAO illustration below the cameras mirrors the saved LED colour and brightness selections; it does not read live robot LED state.
+- Battery, temperature and motion information, movable panels, saved layouts, discovery and a connection screen without scrolling. The bottom grab handle and pin stay visible. A wide Appearance panel below the cameras and operator controls shows enlarged head, torso and foot crops of the approved NAO illustration and mirrors the saved LED colour and brightness selections; it does not read live robot LED state.
 
 Motion includes a saved **Response: Smooth / Balanced / Quick** setting. It changes the acceleration of walking and rotation, not the 50% command cap or upper-body tracking. Balanced is the default. Centred sticks and STOP still stop promptly through native stopMove. On the right stick, the dominant axis selects turning or continuous height; small vertical deviations during a turn do not trigger crouching.
 

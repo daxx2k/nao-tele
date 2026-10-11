@@ -6,13 +6,13 @@ struct Rect {float x,y,w,h;};
 inline Rect contain(Rect bounds,int sourceWidth,int sourceHeight){if(sourceWidth<=0||sourceHeight<=0)return bounds;float scale=std::min(bounds.w/sourceWidth,bounds.h/sourceHeight),w=sourceWidth*scale,h=sourceHeight*scale;return {bounds.x+(bounds.w-w)*.5f,bounds.y+(bounds.h-h)*.5f,w,h};}
 // Left diagnostics, central fused vision, right stacked operator controls.
 // Semantic group indices remain stable; View and Pose offsets are retired.
-constexpr float x[]={960,960,960,0,20,0,960};
-constexpr float width[]={420,420,420,0,440,0,420};
-constexpr float groupY[]={64,512,356,0,794,0,816};
-constexpr float groupHeight[]={280,292,144,0,156,0,134};
+constexpr float x[]={960,960,960,0,20,0,480};
+constexpr float width[]={420,420,420,0,440,0,900};
+constexpr float groupY[]={64,512,356,0,794,0,812};
+constexpr float groupHeight[]={280,292,144,0,156,0,138};
 constexpr Rect motionResponse{x[0]+8,groupY[0]+244,width[0]-16,28};
 constexpr Rect fusion{480,64,460,736};
-constexpr Rect visionPanel{480,64,460,886},ledAvatar{480,812,460,138};
+constexpr Rect ledAvatar{480,812,900,138};
 constexpr Rect fusionImage{488,104,444,588};
 constexpr Rect cameras[]={{488,102,444,333},{488,455,444,333},{488,838,208,105}};
 constexpr float cameraGap=20,cameraBlendPixels=8,cameraCornerRadius=8;
@@ -43,9 +43,9 @@ inline Rect button(int group,int ordinal,int count){
         int i=ordinal-1,rows=std::min(count,4)/2;float h=std::min(42.f,81.f/std::max(1,rows));
         return {x[group]+8+(i%2)*(w+6),groupY[group]+97+(i/2)*h,w,h-6};}
     if(group==6){
-        if(ordinal<5){float w=(width[group]-40)/5;return {x[group]+8+ordinal*(w+6),groupY[group]+33,w,28};}
-        int i=ordinal-5;float w=(width[group]-52)/7;
-        return {x[group]+8+i*(w+6),groupY[group]+80,w,44};}
+        if(ordinal<5){float w=78;return {x[group]+8+ordinal*(w+6),groupY[group]+98,w,36};}
+        int i=ordinal-5;float w=(width[group]-452)/7;
+        return {x[group]+438+i*(w+2),groupY[group]+98,w,36};}
     int columns=group==1?(count>12?3:2):group==4?1:group==2?2:2;int rows=(count+columns-1)/columns;float h=std::min(48.f,(groupHeight[group]-33)/std::max(1,rows)),w=(width[group]-16-(columns-1)*6)/columns;return {x[group]+8+(ordinal%columns)*(w+6),groupY[group]+33+(ordinal/columns)*h,w,h-6};
 }
 struct PointerGrip {

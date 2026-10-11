@@ -8,7 +8,8 @@
 int main(){using namespace dashboard_layout;
     assert(groupY[2]==groupY[0]+groupHeight[0]+12);
     assert(groupY[1]==groupY[2]+groupHeight[2]+12);
-    assert(groupY[6]==groupY[1]+groupHeight[1]+12);
+    assert(groupY[6]==groupY[1]+groupHeight[1]+8);
+    assert(ledAvatar.x==fusion.x&&ledAvatar.w==900&&ledAvatar.y>fusion.y+fusion.h&&ledAvatar.y+ledAvatar.h==950);
     assert(motionResponse.y+motionResponse.h<=groupY[0]+groupHeight[0]);
     for(int i=0;i<7;++i){auto r=button(0,i,7);assert(r.y+r.h<=motionResponse.y);}
     for(auto r:{headerLayout,headerHelp})assert(r.w>=48&&r.h>=48&&r.x>=20&&r.x+r.w<=1380&&r.y>=0&&r.y+r.h<=56);
@@ -33,7 +34,7 @@ int main(){using namespace dashboard_layout;
     assert(std::abs(tabletScreen.w/tabletScreen.h-1.6f)<.001f);
     assert(tabletScreen.x>=tablet.x&&tabletScreen.x+tabletScreen.w<=tablet.x+tablet.w&&tabletScreen.y>=tablet.y&&tabletScreen.y+tabletScreen.h<=tablet.y+tablet.h);
     assert(button(6,0,10).y==button(6,1,10).y&&button(6,1,10).y==button(6,2,10).y);
-    assert(button(6,2,10).x>button(6,1,10).x&&button(6,5,12).y>button(6,0,12).y+button(6,0,12).h);
+    assert(button(6,2,10).x>button(6,1,10).x&&button(6,5,12).y==button(6,0,12).y&&button(6,5,12).x>button(6,4,12).x+button(6,4,12).w);
     for(auto r:{windowMove,windowPin})assert(r.y>996&&r.y+r.h<=1054&&r.x>=20&&r.x+r.w<=1380);
     assert(windowPin.x>windowMove.x+windowMove.w);
     assert(statusBar.y+statusBar.h<windowMove.y&&statusBar.y+statusBar.h<windowPin.y);

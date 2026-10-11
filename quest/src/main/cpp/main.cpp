@@ -936,12 +936,25 @@ void main(){
     }
     void drawNaoLeds(){
         const auto card=dashboard_layout::ledAvatar;surfaceCard(card.x,card.y,card.w,card.h);
-        const float h=card.h-4,w=h*nao_led_avatar::width/nao_led_avatar::height,x=card.x+(card.w-w)*.5f,y=card.y+2;
+        KeepColors original(preserveColors);const auto palette=dashboard_theme::palette();
         const auto colours=nao_led_avatar::colours(ledSwatches);
-        const char* names[]={"avatarEyes","avatarChest","avatarEars","avatarHead","avatarFeet"};
-        glUseProgram(program);for(int i=0;i<5;++i)glUniform3fv(glGetUniformLocation(program,names[i]),1,colours[i].data());
-        glBindTexture(GL_TEXTURE_2D,avatarTexture);
-        vertices({2*x/W-1,1-2*(y+h)/H,0,1,2*(x+w)/W-1,1-2*(y+h)/H,1,1,2*(x+w)/W-1,1-2*y/H,1,0,2*x/W-1,1-2*(y+h)/H,0,1,2*(x+w)/W-1,1-2*y/H,1,0,2*x/W-1,1-2*y/H,0,0},6);
+        const char* uniforms[]={"avatarEyes","avatarChest","avatarEars","avatarHead","avatarFeet"};
+        glUseProgram(program);for(int i=0;i<5;++i)glUniform3fv(glGetUniformLocation(program,uniforms[i]),1,colours[i].data());
+        const char* labels[]={"Head","Torso","Feet"};
+        // Three crops of the approved PNG retain its original artwork and UV-based LEDs.
+        const std::array<std::array<float,4>,3> crops{{{{.286f,.008f,.713f,.211f}},{{.208f,.210f,.794f,.490f}},{{.143f,.827f,.883f,.965f}}}};
+        int selected=ledTarget==1?1:ledTarget==4?2:0;
+        for(int i=0;i<3;++i){
+            float left=card.x+i*card.w/3,zoneWidth=card.w/3;
+            auto ink=i==selected?palette.primary:palette.secondary;
+            text(labels[i],left+14,card.y+5,ink[0],ink[1],ink[2],ui_type::secondary);
+            if(i==selected)pixelLine(left+14,card.y+23,left+48,card.y+23,1.5f,palette.accent[0],palette.accent[1],palette.accent[2]);
+            if(i)pixelLine(left,card.y+8,left,card.y+89,1,palette.border[0],palette.border[1],palette.border[2]);
+            const auto uv=crops[i];auto box=dashboard_layout::contain({left+10,card.y+22,zoneWidth-20,72},int((uv[2]-uv[0])*nao_led_avatar::width),int((uv[3]-uv[1])*nao_led_avatar::height));
+            float x=box.x,y=box.y,w=box.w,h=box.h;glBindTexture(GL_TEXTURE_2D,avatarTexture);
+            vertices({2*x/W-1,1-2*(y+h)/H,uv[0],uv[3],2*(x+w)/W-1,1-2*(y+h)/H,uv[2],uv[3],2*(x+w)/W-1,1-2*y/H,uv[2],uv[1],2*x/W-1,1-2*(y+h)/H,uv[0],uv[3],2*(x+w)/W-1,1-2*y/H,uv[2],uv[1],2*x/W-1,1-2*y/H,uv[0],uv[1]},6);
+        }
+        pixelLine(card.x+8,card.y+95,card.x+card.w-8,card.y+95,1,palette.border[0],palette.border[1],palette.border[2]);
     }
     void drawHelp(){
         panel(12,8,HELP_W-24,H-16,.055f,.09f,.14f,24);
@@ -1031,7 +1044,7 @@ void main(){
         fitText(temperatureLegend,thermal.x+12,thermal.y+thermal.h-18,thermal.w-24,.75f,.8f,.85f,ui_type::secondary);
         const char* groups[]={"Motion","Voice & phrases","Animations","Unused","Connection","Pose offsets","Appearance"};
         const auto& xs=dashboard_layout::x;const auto& ws=dashboard_layout::width;
-        for(int g=0;g<7;++g){if(g==3||g==5)continue;auto tint=dashboard_theme::section[g];surfaceCard(xs[g],dashboard_layout::groupY[g],ws[g],dashboard_layout::groupHeight[g],tint);fitText(groups[g],xs[g]+23,dashboard_layout::groupY[g]+8,ws[g]-35,.85f,.88f,.93f,ui_type::heading);}
+        for(int g=0;g<7;++g){if(g==3||g==5||g==6)continue;auto tint=dashboard_theme::section[g];surfaceCard(xs[g],dashboard_layout::groupY[g],ws[g],dashboard_layout::groupHeight[g],tint);fitText(groups[g],xs[g]+23,dashboard_layout::groupY[g]+8,ws[g]-35,.85f,.88f,.93f,ui_type::heading);}
         std::string postureLine="Posture: "+t.value("posture",std::string("--"))+" | "+(fresh&&t.value("standing",false)?"Standing":"START stands NAO up");
         fitText(postureLine,xs[0]+10,dashboard_layout::groupY[0]+142,ws[0]-20,.85f,.94f,1,ui_type::secondary);
         auto preparation=state.value("preparation",J::object());
