@@ -7,7 +7,7 @@ TeleNao 0.1.11 uses the shared telepresence control architecture. Shared Quest c
 | Quest head, arms, wrists, trigger hands | Same controls, NAO lengths and hardware limits | Code review, native build, joint-limit tests, 216 native FK/IK round trips and T-pose continuity checks; physical pose accuracy still needs operator trials |
 | START, calibration, mirror, STOP, watchdog | Preserved; guarded brief-timeout recovery; explicit START after full reconnection | Regression checks; Sit executed and confirmed live |
 | Joystick movement / height | Native NAO walking with standing/awake gates and 50% on all axes with bounded acceleration, bounded continuous height | Input/gating tests; physical gait is still unvalidated |
-| Manual animation panel | StandInit, Stand, Sit, Crouch in the original motion-animation grid | Native layout checks and live Sit |
+| Manual poses and animations | Four native postures; installed Hello, Wave and kicks; official Dance and Tai Chi | Postures at 100%; paused takeover and standing resume tests; installed timelines parsed and hardware ranges checked; new animations await physical testing |
 | Automatic speech gestures | Native NAO conversation resources, arms only; OFF by default | Three installed clips parsed; dry-run scheduling verifies only ten arm joints, measured-pose start, hardware bounds and speed caps; no physical gesture run yet |
 | Live puppeteer voice | Preserved | 113 PCM packets sent from Quest to robot with no audio error; separate audible phrase confirmed by the operator |
 | Piper/Cori clip voice | Preserved | Quest local synthesis queue self-test passes three clips; Quest-to-robot clip acknowledged playback |
@@ -20,7 +20,7 @@ TeleNao 0.1.11 uses the shared telepresence control architecture. Shared Quest c
 | Battery, temperatures, touches, sonar, bumpers | NAO telemetry mappings; missing sensors remain null | Live sensor API and key discovery; foot-bumper mappings corrected |
 | Floating panels, layout save/load, Help, connection/pairing | Shared behavior retained; NAO wording and layouts updated | Native dashboard/layout and discovery tests |
 | Tablet display, depth camera, Robot lidar | No corresponding hardware on this NAO | Hidden/excluded from Quest controls |
-| Robot torso, full-body Robot animations | Excluded; native NAO posture/gait own the legs | No arbitrary behavior dispatch or Robot hip/wheel calls |
+| Torso mirroring and arbitrary behavior execution | Excluded; allowlisted native NAO timelines only | Whole-body Hello, Wave and kicks; Dance/Tai Chi dispatched through original native behaviors |
 | Speed/range disable switches, automatic fault re-arm | Hardware bounds retained; guarded recovery of previously armed sessions | Safeguards remain enabled; this is a deliberate port policy, not an asserted hardware limitation |
 
 Coverage is not a claim that every feature was physically tested. This audit includes code comparison, mock regressions, native checks on Quest and the specific live tests listed above. Wireless jitter remains significant; session survival does not prove physical low latency.

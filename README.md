@@ -6,11 +6,11 @@ Standalone NAO app with Android application ID `it.telenao.quest`, private setti
 
 ## Download
 
-Experimental release **0.1.16-nao-test**. Use with an attentive operator and space around the robot.
+Experimental release **0.1.17-nao-test**. Use with an attentive operator and space around the robot.
 
 | Package | Download |
 |---|---|
-| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.16-nao-test/TeleNao-Quest.apk) |
+| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.17-nao-test/TeleNao-Quest.apk) |
 | APK, installer and instructions | [Installation bundle](https://github.com/daxx2k/nao-tele/releases) |
 | Source bundle and checksums | [Release assets](https://github.com/daxx2k/nao-tele/releases) |
 
@@ -31,17 +31,18 @@ Requires owner SSH access and a reachable network connection between NAO and Que
 ## Features and controls
 
 - Head, arm and wrist tracking with NAO geometry and joint bounds; triggers close the hands. Direct mapping after gentle initial engagement, within hardware and speed limits.
-- START requires fresh tracking. If NAO is crouched, seated or below standing height, it first requests native StandInit at speed 0.5; telepresence engages only after standing is confirmed. A + X starts/pauses; B stops.
-- Native StandInit, Stand, Sit and Crouch presets in Motion, while telepresence is stopped.
+- START requires fresh tracking. If NAO is crouched, seated or below standing height, it first requests native StandInit at speed 1.0 (100%); telepresence engages only after standing is confirmed. A + X starts/pauses; B stops.
+- Native StandInit, Stand, Sit and Crouch presets in Motion, selectable during telepresence. Mapping pauses automatically; standing presets resume through fresh calibration, while Sit/Crouch stay paused.
 - Left stick moves forward/backward and sideways. Right stick left/right turns; up/down adjusts standing height within a small bounded range. Centred sticks do not request walking.
 - Both RGB cameras can run together at 5 requested frames/s each. A single camera requests 30 frames/s. A disarmed v4 test delivered about 15 frames/s at 160 x 120; performance depends on the robot and network.
 - Remote voice, robot TTS, English/Italian phrases, offline Cori/Piper synthesis on Quest, microphone listening and volume.
 - Eyes, chest and feet RGB LEDs; ears and head intensity controls. Native arm-only speech gestures are off by default.
-- Battery, temperature and motion information, movable panels, saved layouts, discovery and a connection screen without scrolling.
+- Left/right kicks use isolated original timelines from the installed Soccer package. Hello, Wave, Dance and Tai Chi run through their original installed NAOqi behaviors. Availability depends on packages installed on the robot; no proprietary timelines are bundled. B cancels; standing completion resumes through the normal START flow.
+- Battery, temperature and motion information, movable panels, saved layouts, discovery and a connection screen without scrolling. The bottom grab handle and pin stay visible.
 
 Motion includes a saved **Response: Smooth / Balanced / Quick** setting. It changes the acceleration of walking and rotation, not the 50% command cap or upper-body tracking. Balanced is the default. Centred sticks and STOP still stop promptly through native stopMove. On the right stick, the dominant axis selects turning or continuous height; small vertical deviations during a turn do not trigger crouching.
 
-All joystick axes are capped at 50% normalized input; translation diagonals share that cap, with a 6 cm maximum forward-step setting. These limits do not guarantee actual physical speed or step length. Lowered standing height prevents walking until height is restored.
+All joystick axes are capped at 50% normalized input; translation diagonals share that cap, with a 6 cm maximum forward-step setting. These limits do not guarantee actual physical speed or step length. A walking or turning request restores lowered standing height first. The gait stays stopped until torso sensors confirm standing height; releasing the stick prevents any deferred step.
 
 Control, video and motion use separate connections. Brief command interruptions may recover an already armed session only with fresh tracking, centred sticks and a standing robot. Explicit STOP, tracking loss and full reconnection require START again. Temperature telemetry remains visible. TeleNao adds no temperature-based veto to START or posture presets; native NAOqi motor protections remain active.
 

@@ -71,12 +71,12 @@ void Network::controlLoop(){
     double messageUntil=0,lastDiscovery=-10000;std::string actionMessage;
     while(running_){int s=-1;reconnect_=false;++reconnectAttempts;try{
         std::string pending;
-        s=connectTo(currentHost(),9570,SOCK_STREAM,5000);
+        s=connectTo(currentHost(),9570,SOCK_STREAM,5000,&running_);
         // A slow motor RPC must not tear down the pilot TCP session at 2 seconds.
         // This is a receive deadline, not buffering: UDP tracking/watchdog and
         // the three-second START deadline remain independent and unchanged.
         timeval controlTimeout{5,0};setsockopt(s,SOL_SOCKET,SO_RCVTIMEO,&controlTimeout,sizeof(controlTimeout));
-        {std::lock_guard<std::mutex> g(socketsMutex_);controlSocket_=s;}writeJson(s,{{"token",token_}});auto hello=readJson(s,pending);
+        {std::lock_guard<std::mutex> g(socketsMutex_);controlSocket_=s;if(!running_)shutdown(s,SHUT_RDWR);}writeJson(s,{{"token",token_}});auto hello=readJson(s,pending);
         if(!hello.contains("session"))throw std::runtime_error(hello.value("error","Pairing failed"));
         {std::lock_guard<std::mutex> g(mutex_);session_=hello["session"].get<std::string>();}
         stopMotion_=true;request_=0;feedbackDelayed_=false;tcpMotionReceipt_=0;lastReceipt=milliseconds();lastVideo=0;lastAck=0;rtt=0;messageUntil=0;++generation;connected=true;armed=false;setStatus(hello.value("simulation",false)?"SIMULATION / press Start":"Connected / press Start");
@@ -127,7 +127,7 @@ void Network::controlLoop(){
         lastDiscovery=milliseconds();
         for(const auto& candidate:transport::discoverCandidates()){
             if(!running_)break;int check=-1;
-            try{check=connectTo(candidate,9570,SOCK_STREAM,1000);timeval shortWait{2,0};setsockopt(check,SOL_SOCKET,SO_RCVTIMEO,&shortWait,sizeof(shortWait));setsockopt(check,SOL_SOCKET,SO_SNDTIMEO,&shortWait,sizeof(shortWait));
+            try{check=connectTo(candidate,9570,SOCK_STREAM,1000,&running_);timeval shortWait{2,0};setsockopt(check,SOL_SOCKET,SO_RCVTIMEO,&shortWait,sizeof(shortWait));setsockopt(check,SOL_SOCKET,SO_SNDTIMEO,&shortWait,sizeof(shortWait));
                 writeJson(check,{{"token",token_},{"role","operator"}});std::string pending;auto answer=readJson(check,pending);close(check);check=-1;
                 if(answer.contains("observer")){{std::lock_guard<std::mutex> guard(mutex_);host_=candidate;}setStatus("Paired NAO found: reconnecting");break;}
             }catch(...){if(check>=0)close(check);}
@@ -146,7 +146,7 @@ void Network::motionLoop(){int s=-1;uint64_t seq=0;double lastSample=-1,lastSent
                 close(s);s=-1;lastRepair=now;
             }
             if(s<0||socketGeneration!=generation){if(s>=0){close(s);s=-1;}if(now<nextConnect){pauseMs(10);continue;}
-                try{s=connectTo(currentHost(),9571,SOCK_DGRAM);socketGeneration=generation;lastSample=-1;lastSent=0;}catch(...){nextConnect=now+500;continue;}}
+                try{s=connectTo(currentHost(),9571,SOCK_DGRAM,1500,&running_);socketGeneration=generation;lastSample=-1;lastSent=0;}catch(...){nextConnect=now+500;continue;}}
             PoseCommand p;std::string session;{std::lock_guard<std::mutex> g(mutex_);p=pose_;session=session_;}
             now=milliseconds();
             bool fresh=now-p.sampled<100;
@@ -181,7 +181,7 @@ void Network::voiceLoop(){while(running_){
     {std::lock_guard<std::mutex> g(mutex_);if(connected&&audioFocus&&voiceMode==2&&!voicePcm_.empty()){pcm=std::move(voicePcm_);text=std::move(voiceText_);voiceBusy_=true;session=session_;cancellation=voiceCancellation;}else if(!connected||!audioFocus||voiceMode!=2)voicePcm_.clear();}
     if(pcm.empty()){pauseMs(10);continue;}int s=-1;
     try{
-        s=connectTo(currentHost(),9572);timeval cameraTimeout{5,0};setsockopt(s,SOL_SOCKET,SO_RCVTIMEO,&cameraTimeout,sizeof(cameraTimeout));{std::lock_guard<std::mutex> g(socketsMutex_);voiceSocket_=s;if(cancellation!=voiceCancellation)shutdown(s,SHUT_RDWR);}
+        s=connectTo(currentHost(),9572,SOCK_STREAM,1500,&running_);timeval cameraTimeout{5,0};setsockopt(s,SOL_SOCKET,SO_RCVTIMEO,&cameraTimeout,sizeof(cameraTimeout));{std::lock_guard<std::mutex> g(socketsMutex_);voiceSocket_=s;if(!running_||cancellation!=voiceCancellation)shutdown(s,SHUT_RDWR);}
         std::string reply;writeJson(s,{{"session",session},{"piper_bytes",pcm.size()*2},{"text",text}});auto ready=readJson(s,reply);if(!ready.value("ready",false))throw std::runtime_error(ready.value("error",std::string("Piper playback unavailable")));
         sendAll(s,pcm.data(),pcm.size()*2);timeval timeout{65,0};setsockopt(s,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof(timeout));auto result=readJson(s,reply);
         if(!result.value("played",false))throw std::runtime_error(result.value("error",std::string("Piper playback interrupted")));
@@ -193,7 +193,7 @@ void Network::voiceLoop(){while(running_){
 void Network::videoLoop(int camera){while(running_){if(!connected||!cameraStreaming(camera)){pauseMs(100);continue;}int s=-1;try{
         std::string session;{std::lock_guard<std::mutex> g(mutex_);session=session_;}
         int requestedFps=cameraFrameRate(camera);
-        s=connectTo(currentHost(),9572);timeval cameraTimeout{5,0};setsockopt(s,SOL_SOCKET,SO_RCVTIMEO,&cameraTimeout,sizeof(cameraTimeout));{std::lock_guard<std::mutex> g(socketsMutex_);videoSockets_[camera]=s;}writeJson(s,{{"session",session},{"camera",camera},{"fps",requestedFps}});
+        s=connectTo(currentHost(),9572,SOCK_STREAM,1500,&running_);timeval cameraTimeout{5,0};setsockopt(s,SOL_SOCKET,SO_RCVTIMEO,&cameraTimeout,sizeof(cameraTimeout));{std::lock_guard<std::mutex> g(socketsMutex_);videoSockets_[camera]=s;if(!running_)shutdown(s,SHUT_RDWR);}writeJson(s,{{"session",session},{"camera",camera},{"fps",requestedFps}});
         unsigned videoGeneration=generation;
         while(running_&&connected&&!reconnect_&&videoGeneration==generation&&cameraStreaming(camera)&&requestedFps==cameraFrameRate(camera)){uint32_t length;readAll(s,&length,4);length=ntohl(length);if(length==0||length>1024*1024)throw std::runtime_error("Invalid video frame");
             std::vector<unsigned char> jpeg(length);readAll(s,jpeg.data(),length);double received=milliseconds();

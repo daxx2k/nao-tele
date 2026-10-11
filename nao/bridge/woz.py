@@ -52,6 +52,8 @@ class WoZ(object):
         self.observers = {}
         self.snapshot = {'available': False, 'simulation': service.state.robot.simulate}
         self.phrases = list(DEFAULT_PHRASES)
+        from native_kicks import available
+        self.native_animations=available()
         self.camera, self.view = 0, 'panel'
         self.tablet = {'revision': 0, 'text': '', 'choices': []}
         self.tablet_fade_at = None
@@ -129,7 +131,7 @@ class WoZ(object):
             tablet.update(fade_after_ms=int(remaining*1000),fade_ms=1000,opacity=opacity)
             result = {'bridge': {'version': VERSION, 'variant': VARIANT}, 'telemetry': dict(self.snapshot), 'camera': self.camera, 'view': self.view,
                       'tablet_display': {'connected': self.tablet_seen is not None and self.clock()-self.tablet_seen<2., 'revision':self.tablet_revision},
-                      'phrases': list(self.phrases), 'tablet': tablet, 'speech_on_tablet':self.speech_on_tablet, 'speaker_volume':self.speaker_volume, 'participant_response':self.last_response,
+                      'native_animations':list(self.native_animations), 'phrases': list(self.phrases), 'tablet': tablet, 'speech_on_tablet':self.speech_on_tablet, 'speaker_volume':self.speaker_volume, 'participant_response':self.last_response,
                       'capabilities': {'simulation': self.service.state.robot.simulate,
                                        'walking':True,'postures':['StandInit','Stand','Sit','Crouch'],
                                        'torso':False,'depth':False,'tablet':False,
@@ -194,6 +196,8 @@ class WoZ(object):
                 state.robot.set_motion_limit(request.get('key'),request.get('enabled'))
         elif cmd == 'posture':
             self.service.prepare_posture(request.get('name'),request.get('confirmed'))
+        elif cmd == 'native_animation':
+            self.service.prepare_native_animation(request.get('name'),request.get('confirmed'))
         elif cmd == 'prepare_motion':
             self.service.prepare_motion(request.get('confirmed'))
         elif cmd == 'camera':
@@ -413,11 +417,12 @@ class WoZ(object):
                 torso_z=numeric(torso_pose[2]) if len(torso_pose)==6 else None
                 snap['torso_height']=torso_z
                 snap['height_ready']=torso_z is not None and torso_z>=.26
-                snap['motion_ready']=snap['available'] and snap['standing'] and snap['height_ready'] and bool(batch.get('upper_stiffness')) and min(batch['upper_stiffness'])>=.5 and snap['life_state']=='disabled'
+                snap['motion_ready']=snap['available'] and snap['standing'] and batch.get('posture') in ('Stand','StandInit') and snap['height_ready'] and bool(batch.get('upper_stiffness')) and min(batch['upper_stiffness'])>=.5 and snap['life_state']=='disabled'
                 snap['posture']=batch.get('posture')
-                snap['walking_ready']=bool(snap['motion_ready'] and snap['awake'] and batch.get('posture_family')=='Standing')
+                snap['walking_ready']=bool(snap['available'] and snap['standing'] and snap['height_ready'] and snap['awake'] and bool(batch.get('upper_stiffness')) and min(batch['upper_stiffness'])>=.5 and snap['life_state']=='disabled')
+                snap['height_recovering']=bool(robot.height.recovering);snap['height_lowered']=robot.height.lowered()
                 robot.walking_ready=snap['walking_ready'];robot.walking_checked_at=self.clock()
-                robot.standing=snap['standing'];robot.standing_checked_at=self.clock()
+                robot.standing=snap['standing'];robot.standing_checked_at=self.clock();robot.posture_family=batch.get('posture_family');robot.torso_height=torso_z
                 snap['joint_accepted']=batch.get('joint_accepted')
                 snap['armed']=self.service.state.armed
                 snap['requested_joint_target']=list(self.service.state.requested_angles) if self.service.state.requested_angles else None

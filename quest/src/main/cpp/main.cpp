@@ -25,6 +25,7 @@
 #include "laser_map.h"
 #include "start_flow.h"
 #include "deferred_gesture.h"
+#include "native_action_flow.h"
 #include "panel_layout.h"
 #include "panel_anchor.h"
 #include "pointer_ray.h"
@@ -71,6 +72,7 @@ class App {
     std::vector<XrSwapchainImageOpenGLESKHR> images;
     std::unique_ptr<Network> network;
     std::string appVersion="unknown";
+    bool dashboardPreview=false;
     bool running=false,focused=false,calibrated=false,wasA=false,wasB=false,wasX=false;
     bool highFidelity=false;
     bool passthroughAvailable=false;
@@ -127,6 +129,7 @@ class App {
     static constexpr int W=1400,H=1060,HELP_W=620;
     static constexpr float HELP_SCALE=.85f;
     DeferredGesture pendingGesture;
+    NativeActionFlow nativeAction;
     XrPosef grabStartController=identity(),grabStartPanel=identity();
     double crtAt=-10000;std::array<float,4> crtBounds{};
     bool roomLocked=false,anchorPending=false;XrPosef roomPanel=identity();XrTime frameTime=0,anchorRetryAt=0;float lockedFit=1.35f;int windowGesture=0;XrPosef dragRelative=identity();float resizeStartWidth=0,resizeStartScale=0,resizeStartRadius=0;
@@ -139,7 +142,7 @@ class App {
     nlohmann::json layoutPresets=nlohmann::json::array({nullptr,nullptr,nullptr});
     void resetLayout(){for(int i=0;i<floating_layout::count;++i){cardPoses[i]=floating_layout::initial(i);cardScales[i]=1;}}
     nlohmann::json encodeLayout(){auto a=nlohmann::json::array();for(int i=0;i<floating_layout::count;++i){auto p=cardPoses[i];a.push_back({p.position.x,p.position.y,p.position.z,p.orientation.x,p.orientation.y,p.orientation.z,p.orientation.w,cardScales[i]});}return a;}
-    bool decodeLayout(const nlohmann::json& a){if(a.is_array()&&a.size()==11){auto kept=nlohmann::json::array();for(int i:{0,1,2,3,6,7,8,9,10})kept.push_back(a[i]);return decodeLayout(kept);}if(!a.is_array()||a.size()!=floating_layout::count)return false;auto next=cardPoses;auto sizes=cardScales;try{for(int i=0;i<floating_layout::count;++i){if(!a[i].is_array()||(a[i].size()!=7&&a[i].size()!=8))return false;auto r=a[i];XrPosef p{{r[3].get<float>(),r[4].get<float>(),r[5].get<float>(),r[6].get<float>()},{r[0].get<float>(),r[1].get<float>(),r[2].get<float>()}};if(!floating_layout::valid(p))return false;next[i]=p;if(r.size()==8){float v=r[7].get<float>();if(!std::isfinite(v)||v<.5f||v>2)return false;sizes[i]=v;}else sizes[i]=1;}}catch(...){return false;}cardPoses=next;cardScales=sizes;return true;}
+    bool decodeLayout(const nlohmann::json& a){if(a.is_array()&&a.size()==11){auto kept=nlohmann::json::array();for(int i:{0,1,2,3,6,7,8,9,10})kept.push_back(a[i]);return decodeLayout(kept);}if(a.is_array()&&a.size()==9){auto updated=a;auto p=floating_layout::initial(9);updated.push_back({p.position.x,p.position.y,p.position.z,p.orientation.x,p.orientation.y,p.orientation.z,p.orientation.w,1.f});return decodeLayout(updated);}if(!a.is_array()||a.size()!=floating_layout::count)return false;auto next=cardPoses;auto sizes=cardScales;try{for(int i=0;i<floating_layout::count;++i){if(!a[i].is_array()||(a[i].size()!=7&&a[i].size()!=8))return false;auto r=a[i];XrPosef p{{r[3].get<float>(),r[4].get<float>(),r[5].get<float>(),r[6].get<float>()},{r[0].get<float>(),r[1].get<float>(),r[2].get<float>()}};if(!floating_layout::valid(p))return false;next[i]=p;if(r.size()==8){float v=r[7].get<float>();if(!std::isfinite(v)||v<.5f||v>2)return false;sizes[i]=v;}else sizes[i]=1;}}catch(...){return false;}for(int i=0;i<floating_layout::count;++i)floating_layout::migrateDefault(i,next[i],sizes[i]);cardPoses=next;cardScales=sizes;return true;}
     void saveLayout(){auto state=nlohmann::json{{"version",1},{"floating",floating},{"current",encodeLayout()},{"presets",layoutPresets},{"slot",layoutSlot}}.dump();JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);auto cls=env->GetObjectClass(app->activity->clazz);auto str=env->NewStringUTF(state.c_str());env->CallVoidMethod(app->activity->clazz,env->GetMethodID(cls,"saveLayout","(Ljava/lang/String;)V"),str);env->DeleteLocalRef(str);env->DeleteLocalRef(cls);}
     bool updateCardGesture(bool trigger,float dt){
         if(cardDrag>=0){if(!trigger||!pointerGrip.held||!focused){cardDrag=-1;saveLayout();return true;}XrPosef controller;if(controllerPose(controller)){dt=bounded(dt,0,.05f);auto axes=stick(1);cardGrab=panel_anchor::depth(cardGrab,axes.y,dt);cardPoses[cardDrag]=floating_layout::relative(roomPanel,panel_anchor::compose(controller,cardGrab),panelWidth());cardScales[cardDrag]=bounded(cardScales[cardDrag]*std::exp(deadzone(axes.x)*dt*.4f),.5f,2.f);}else {cardDrag=-1;saveLayout();}return true;}
@@ -333,7 +336,7 @@ void main(){
         rows.push_back({helpOpen?"Close help":"Help","Quick guide beside the dashboard",{{"cmd","local_help"}}});
         rows.push_back({layoutEditing?"Done":"Layout","Arrange independent panels in the room",{{"cmd","local_layout"}}});
         if(layoutEditing){rows.push_back({"Preset "+std::to_string(layoutSlot+1),"Choose one of three saved layouts",{{"cmd","local_layout_slot"}}});rows.push_back({"Save","Save the current panel arrangement",{{"cmd","local_layout_save"}}});rows.push_back({"Load","Restore the selected preset",{{"cmd","local_layout_load"}}});rows.push_back({"Reset","Restore the original arrangement",{{"cmd","local_layout_reset"}}});}
-        bool motionRunning=network->armed||startFlow.active();
+        bool motionRunning=network->armed||startFlow.active()||nativeAction.waiting;
         rows.push_back({startFlow.active()?"STARTING...":motionRunning?"STOP":"START","Start with calibration / stop motion and recovery",{{"cmd",motionRunning?"local_stop":"local_start"}}});
         rows.push_back({network->listenAudio?"Listen: ON":"Listen: OFF","NAO microphones / OFF at startup",{{"cmd","local_listen"}}});
         rows.push_back({network->voiceMode==0?"Voice: NAO TTS":network->voiceMode==1?"Voice: puppeteer":"Voice: Piper / Cori","Hold left grip / release to speak",{{"cmd","local_voice_mode"}}});
@@ -346,7 +349,12 @@ void main(){
         auto limits=state.value("robot_limits",J::object());
         const char* limitKeys[]={"range","speed"};const char* limitLabels[]={"Joint limits","Speed limits"};
         if(false)for(int i=0;i<2;++i)rows.push_back({std::string(limitLabels[i])+(limits.value(limitKeys[i],true)?": ON":": OFF"),"Pause then change this software limit / START resumes",{{"cmd","local_robot_limit"},{"key",limitKeys[i]},{"slot",i},{"enabled",!limits.value(limitKeys[i],true)}}});
-        for(const char* name:{"StandInit","Stand","Sit","Crouch"})rows.push_back({name,"STOP first / native NAO posture / B cancels",{{"cmd","posture"},{"name",name},{"confirmed",true}}});
+        for(const char* name:{"StandInit","Stand","Sit","Crouch"})rows.push_back({name,"Native posture / mapping pauses automatically / B cancels",{{"cmd","posture"},{"name",name},{"confirmed",true}}});
+        for(const auto& name:state.value("native_animations",J::array())){
+            std::string id=name.get<std::string>(),label;
+            if(id=="kick_left")label="Kick left";else if(id=="kick_right")label="Kick right";else if(id=="hello")label="Hello";else if(id=="wave")label="Wave";else if(id=="dance")label="Dance";else if(id=="taichi")label="Tai Chi";
+            if(!label.empty())rows.push_back({label,"Native NAO timeline / mapping resumes standing / B cancels",{{"cmd","native_animation"},{"name",id},{"confirmed",true}}});
+        }
         const char* responses[]={"Smooth","Balanced","Quick"};
         rows.push_back({std::string("Response: ")+responses[driveResponse],"Cycle walking response / speed cap stays 50%",{{"cmd","local_drive_response"}}});
         for(int c=0;c<2;++c)rows.push_back({c==0?"Top camera":"Bottom camera","Click the feed to toggle streaming",{{"cmd","local_camera"},{"camera",c}}});
@@ -373,7 +381,7 @@ void main(){
         if(item.action.value("tablet_preset",false))return 2;
         if(c=="local_drive_response"||c=="local_robot_limit"||c=="local_pose_mirror"||c=="local_torso_assist"||c=="local_start"||c=="local_stop"||c=="local_calibrate"||c=="gesture"||c=="posture")return 0;
         if(c=="speech_gestures"||c=="speech_on_tablet"||c=="local_voice_mode"||c=="local_natural_voice"||c=="say"||c=="speech_stop"||c=="local_listen"||c=="local_volume")return 1;
-        if(c=="tablet")return 2;
+        if(c=="tablet"||c=="native_animation")return 2;
         if(c=="local_exit_normal"||c=="local_settings"||c=="local_reconnect"||c=="base_protection"||c=="local_panel_move"||c=="local_panel_resize"||c=="local_panel_lock"||c=="local_panel_here")return 4;
         if(c.find("local_offset_")==0)return 5;
         if(c=="led"||c=="local_led_target"||c=="local_led_preset")return 6;
@@ -414,6 +422,7 @@ void main(){
         return in;
     }
     void beginStart(bool animation=false,bool recalibrate=false){
+        if(nativeAction.waiting){inputMessage="Action in progress / B cancels";inputMessageUntil=milliseconds()+3000;return;}
         __android_log_print(ANDROID_LOG_INFO,"TeleNao","START selected connected=%d layout=%d window=%d focused=%d",int(network->connected.load()),layoutEditing,windowGesture,focused);
         if(pendingExitNormal){inputMessage="Closing teleoperation / wait for STOP";inputMessageUntil=milliseconds()+3000;return;}
         if(!pendingRobotLimit.is_null()){inputMessage="Changing limits / wait before START";inputMessageUntil=milliseconds()+3000;return;}
@@ -430,7 +439,7 @@ void main(){
         inputMessage=item.label;inputMessageUntil=milliseconds()+4000;
         if(cmd=="local_map"||cmd=="local_camera"||cmd=="local_depth"||cmd=="local_panel_lock"||(item.action.contains("enabled")&&cmd!="local_robot_limit")||cmd=="local_led_preset"){auto r=menuRect(menuIndex,items);crtBounds={r.x,r.y,r.w,r.h};crtAt=milliseconds();}
         if(cmd.find("local_layout")==0){
-            if(cmd=="local_layout"){if(!layoutEditing){if(maxLayers<floating_layout::count+2){inputMessage="Independent panels unavailable on this headset";return;}if(!roomLocked&&!placePanel())return;roomLocked=true;floating=true;saveWindowMode();startFlow.cancel();pendingGesture.cancel();network->requestStop();}layoutEditing=!layoutEditing;cardDrag=-1;saveLayout();inputMessage=layoutEditing?"Grip + trigger title / stick up-down depth, left-right size":"Layout ready / START resumes motion";}
+            if(cmd=="local_layout"){if(!layoutEditing){if(maxLayers<floating_layout::count+2){inputMessage="Independent panels unavailable on this headset";return;}if(!roomLocked&&!placePanel())return;roomLocked=true;floating=true;saveWindowMode();startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();network->requestStop();}layoutEditing=!layoutEditing;cardDrag=-1;saveLayout();inputMessage=layoutEditing?"Grip + trigger title / stick up-down depth, left-right size":"Layout ready / START resumes motion";}
             else if(cmd=="local_layout_slot")layoutSlot=(layoutSlot+1)%3;
             else if(cmd=="local_layout_reset"){resetLayout();saveLayout();}
             else if(cmd=="local_layout_save"){layoutPresets[layoutSlot]=encodeLayout();saveLayout();inputMessage="Preset saved";}
@@ -438,6 +447,16 @@ void main(){
             return;
         }
         if(layoutEditing&&cmd!="local_help")return;
+        if(cmd=="posture"||cmd=="native_animation"){
+            if(nativeAction.waiting){inputMessage="Action in progress / B cancels";return;}
+            startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();
+            auto preparation=state.value("preparation",nlohmann::json::object());
+            std::string name=item.action.value("name",std::string());
+            bool resume=cmd=="native_animation"||name=="Stand"||name=="StandInit";
+            nativeAction.begin(resume,preparation.value("revision",0u)+1,network->generation,milliseconds()/1000.);
+            network->requestStop();network->command(item.action);menuOpen=false;return;
+        }
+
         if(cmd=="local_offset_face")faceReach=!faceReach;
         else if(cmd=="local_offset_joint")offsetJoint=(offsetJoint+1)%12;
         else if(cmd=="local_offset_minus"||cmd=="local_offset_plus")offsets[offsetJoint]=bounded(offsets[offsetJoint]+(cmd=="local_offset_plus"?2:-2),-30,30);
@@ -446,7 +465,7 @@ void main(){
         else if(cmd=="local_help"){helpOpen=!helpOpen;pointerOnHelp=false;}
         else if(cmd=="local_led_target"){ledTarget=std::max(0,std::min(4,item.action.value("target",0)));saveAppearance();}
         else if(cmd=="local_led_preset"){ledSwatches[ledTarget]=item.action.value("swatch",-1);saveAppearance();const char* groups[]={"FaceLeds","ChestLeds","EarLeds","BrainLeds","FeetLeds"};network->command({{"cmd","led"},{"group",groups[ledTarget]},{"color",item.action["color"]},{"intensity",item.action["intensity"]}});}
-        else if(cmd=="local_pose_mirror"){startFlow.cancel();pendingGesture.cancel();network->requestStop();poseMirror=!poseMirror;driveInput.ready=false;
+        else if(cmd=="local_pose_mirror"){startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();network->requestStop();poseMirror=!poseMirror;driveInput.ready=false;
             JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);jclass cls=env->GetObjectClass(app->activity->clazz);env->CallVoidMethod(app->activity->clazz,env->GetMethodID(cls,"savePoseMirror","(Z)V"),poseMirror);env->DeleteLocalRef(cls);inputMessage="Pose mirror changed / hold A + X to resume";}
         else if(cmd=="local_voice_mode"){network->cancelVoiceAudio();network->voiceMode=(network->voiceMode+1)%3;network->ttsVoice=network->voiceMode!=1;network->command({{"cmd","speech_stop"}});updateVoice(false);if(network->voiceMode==2){JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);jclass cls=env->GetObjectClass(app->activity->clazz);jstring lang=(jstring)env->CallObjectMethod(app->activity->clazz,env->GetMethodID(cls,"getNaturalVoiceLanguage","()Ljava/lang/String;"));const char* raw=env->GetStringUTFChars(lang,nullptr);voiceItalian=std::string(raw).find("it")==0;env->ReleaseStringUTFChars(lang,raw);env->DeleteLocalRef(lang);env->DeleteLocalRef(cls);}}
         else if(cmd=="local_natural_voice"){network->cancelVoiceAudio();updateVoice(false);JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);jclass cls=env->GetObjectClass(app->activity->clazz);jstring lang=env->NewStringUTF(voiceItalian?"it-IT":"en-US");env->CallVoidMethod(app->activity->clazz,env->GetMethodID(cls,"nextNaturalVoice","(Ljava/lang/String;)V"),lang);env->DeleteLocalRef(lang);env->DeleteLocalRef(cls);}
@@ -473,20 +492,20 @@ void main(){
             JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);jclass cls=env->GetObjectClass(app->activity->clazz);env->CallVoidMethod(app->activity->clazz,env->GetMethodID(cls,"saveCameraStreaming","(IZ)V"),c,enabled);env->DeleteLocalRef(cls);}
         else if(cmd=="local_depth"){bool enabled=!network->depthStreaming;network->setDepthStreaming(enabled);JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);jclass cls=env->GetObjectClass(app->activity->clazz);env->CallVoidMethod(app->activity->clazz,env->GetMethodID(cls,"saveDepthStreaming","(Z)V"),enabled);env->DeleteLocalRef(cls);}
 
-        else if(cmd=="local_stop"){pendingExitNormal=false;pendingRobotLimit=nullptr;startFlow.cancel();pendingGesture.cancel();network->requestStop(true);}
+        else if(cmd=="local_stop"){pendingExitNormal=false;pendingRobotLimit=nullptr;startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();network->requestStop(true);}
         else if(cmd=="local_reconnect")network->requestReconnect();
         else if(cmd=="local_settings")openSettings();
         else if(cmd=="local_exit_normal"){
-            startFlow.cancel();pendingGesture.cancel();pendingRobotLimit=nullptr;
+            startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();pendingRobotLimit=nullptr;
             pendingExitNormal=true;exitStopAck=network->stopAcknowledged;exitDeadline=milliseconds()+5000;
             network->requestStop();inputMessage="Stopping before returning NAO to normal";inputMessageUntil=exitDeadline;
         }
         else if(cmd=="local_robot_limit"){
-            startFlow.cancel();pendingGesture.cancel();limitStopAck=network->stopAcknowledged;
+            startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();limitStopAck=network->stopAcknowledged;
             pendingRobotLimit={{"cmd","motion_limits"},{"key",item.action.value("key",std::string())},{"enabled",item.action.value("enabled",true)}};
             limitDeadline=milliseconds()+5000;network->requestStop();inputMessage="Pausing before changing robot limits";
         }
-        else if(cmd=="local_calibrate"){startFlow.cancel();pendingGesture.cancel();calibrateRequested=true;}
+        else if(cmd=="local_calibrate"){startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();calibrateRequested=true;}
         else if(cmd=="local_start")beginStart();
         else if(cmd=="gesture"){
             if(!network->connected)inputMessage="Connect NAO before playing an animation";
@@ -524,7 +543,7 @@ void main(){
         float u=0,v=0;if(!panel_anchor::hit(controller,roomPanel,panelWidth(),panelWidth()*H/W,u,v,false))return;
         roomLocked=true;saveWindowMode();windowGesture=gesture;grabStartController=controller;grabStartPanel=roomPanel;dragRelative=panel_anchor::compose(panel_anchor::inverse(controller),roomPanel);
         resizeStartWidth=panelWidth();resizeStartScale=panelScale;resizeStartRadius=std::hypot((u-.5f)*resizeStartWidth,(v-.5f)*resizeStartWidth*H/W);
-        startFlow.cancel();pendingGesture.cancel();network->requestStop();menuOpen=true;inputMessage="Move freely / stick up-away, down-near / left-right size";inputMessageUntil=milliseconds()+4000;}
+        startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();network->requestStop();menuOpen=true;inputMessage="Move freely / stick up-away, down-near / left-right size";inputMessageUntil=milliseconds()+4000;}
     bool updateWindowGesture(bool trigger){if(!windowGesture)return false;
         if(!trigger||!pointerGrip.held||!focused){if(windowGesture==2||windowGesture==3)savePanelScale();windowGesture=0;return true;}
         XrPosef controller;if(!controllerPose(controller))return true;
@@ -635,7 +654,7 @@ void main(){
             else inputMessage="Y received: menu toggled";
         }
         bool select=axis(triggers,1)>(wasSelect?.3f:.7f);
-        if(y&&!wasY){pendingRobotLimit=nullptr;windowGesture=0;startFlow.cancel();pendingGesture.cancel();menuOpen=!menuOpen;network->requestStop();menuIndex=0;}
+        if(y&&!wasY){pendingRobotLimit=nullptr;windowGesture=0;startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();menuOpen=!menuOpen;network->requestStop();menuIndex=0;}
         wasY=y;
         bool gestureToggle=speechChord.update(milliseconds()/1000.,axis(grips,0)>.6f,axis(grips,1)>.6f,
             focused&&network->connected&&!b&&!windowGesture&&cardDrag<0&&!layoutEditing);
@@ -676,10 +695,16 @@ void main(){
             if(gestures.value("enabled",false))network->command({{"cmd","speech_gesture_trigger"}});
         }
         updateVoice(network->talk);
-        if(b&&!wasB){pendingExitNormal=false;pendingRobotLimit=nullptr;if(cardDrag>=0){cardDrag=-1;saveLayout();}windowGesture=0;startFlow.cancel();pendingGesture.cancel();network->requestStop();}
-        if(manualCalibration){startFlow.cancel();pendingGesture.cancel();beginStart(false,true);}
+        {
+            auto state=network->snapshot();auto prep=state.value("preparation",nlohmann::json::object());auto telemetry=state.value("telemetry",nlohmann::json::object());
+            auto action=nativeAction.tick(network->generation,prep.value("revision",0u),prep.value("busy",false),telemetry.value("standing",false),milliseconds()-network->lastSnapshot<750,prep.value("message",std::string()),focused&&!b&&network->connected,milliseconds()/1000.);
+            if(action==NativeActionFlow::Resume)beginStart(true);
+            else if(action==NativeActionFlow::Stop){network->requestStop();inputMessage="Native action timed out / press START";inputMessageUntil=milliseconds()+4000;}
+        }
+        if(b&&!wasB){pendingExitNormal=false;pendingRobotLimit=nullptr;if(cardDrag>=0){cardDrag=-1;saveLayout();}windowGesture=0;startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();network->requestStop();}
+        if(manualCalibration){startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();beginStart(false,true);}
         if(startChord.update(milliseconds()/1000.,a,x,!b&&!windowGesture&&!layoutEditing&&focused&&network->connected&&app->activityState==APP_CMD_RESUME)){
-            if(network->armed||startFlow.active()){startFlow.cancel();pendingGesture.cancel();network->requestStop(true);inputMessage="Returning to neutral / hold A + X to resume";inputMessageUntil=milliseconds()+4000;}
+            if(network->armed||startFlow.active()){startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();network->requestStop(true);inputMessage="Returning to neutral / hold A + X to resume";inputMessageUntil=milliseconds()+4000;}
             else beginStart();
         }else if(startChord.progress>0){inputMessage="Hold A + X: "+std::to_string(int(startChord.progress*100))+"%";inputMessageUntil=milliseconds()+1500;}
 
@@ -712,7 +737,7 @@ void main(){
         if(startAction==StartFlow::Cancelled){
             if(std::string(startFlow.message)=="Start refused: check NAO status")inputMessage="Start refused: "+network->status();
             __android_log_print(ANDROID_LOG_WARN,"TeleNao","Start flow cancelled: %s",inputMessage.c_str());
-            pendingGesture.cancel();network->requestStop();}
+            pendingGesture.cancel();nativeAction.cancel();network->requestStop();}
         auto gestureAction=pendingGesture.tick(startAction==StartFlow::Finished,startAction==StartFlow::Cancelled,network->armed,network->snapshot().value("gesture",std::string()),milliseconds()/1000.);
         if(gestureAction==DeferredGesture::Send){network->command({{"cmd","gesture"},{"name",pendingGesture.name}});inputMessage="Animation playing / B stops / live tracking resumes";inputMessageUntil=milliseconds()+7000;}
         else if(gestureAction==DeferredGesture::Stop){network->requestStop();inputMessage="Animation not acknowledged: check NAO status";inputMessageUntil=milliseconds()+7000;}
@@ -886,7 +911,7 @@ void main(){
         fitText("Quest "+appVersion+" / Head "+bridge.value("version",std::string("unknown")),36,70,HELP_W-160,.65f,.75f,.85f,1.1f);
         fitText("Your controls at a glance",36,75,HELP_W-72,.59f,.72f,.85f,ui_type::body);
         const char* titles[]={"Start & stop","Move NAO","Point & speak","Cameras & sensors","Window & layout","Postures & voice gestures"};
-        const char* first[]={"Hold A + X for 0.75 seconds to start/pause.","Left stick: move. Right: turn / up-down height.","Right grip + trigger: point and click.","Top and Bottom can stream together.","Layout: grip + trigger on panel titles.","STOP first, then StandInit / Stand / Sit / Crouch."};
+        const char* first[]={"Hold A + X for 0.75 seconds to start/pause.","Left stick: move. Right: turn / up-down height.","Right grip + trigger: point and click.","Top and Bottom can stream together.","Layout: grip + trigger on panel titles.","Select a posture any time. B cancels the movement."};
         const char* second[]={"Centre sticks, look forward. B stops.","Head, arms and triggers mirror your pose.","Left grip: release to speak + auto gestures.","Check battery, joint temperatures and LEDs.","Right stick scales. Save / Load / Reset.","Both grips toggle arm gestures. B cancels."};
         for(int i=0;i<6;++i){float y=125+i*137;panel(28,y,HELP_W-56,123,.075f,.13f,.20f,18);
             float cx=57,cy=y+29;panel(cx-16,cy-16,32,32,.12f,.30f,.40f,11);
@@ -964,9 +989,9 @@ void main(){
         std::string temperatureLegend=fresh?"Temperature colour key / red = robot thermal alert":"STALE / waiting for robot sensors";
         if(thermalHover>=0)temperatureLegend=std::string(names[thermalHover])+(fahrenheit?" / temperature in Fahrenheit":" / temperature in Celsius");
         fitText(temperatureLegend,thermal.x+12,thermal.y+thermal.h-18,thermal.w-24,.75f,.8f,.85f,ui_type::secondary);
-        const char* groups[]={"Motion","Voice & phrases","Tablet","View","Connection","Pose offsets","Appearance"};
+        const char* groups[]={"Motion","Voice & phrases","Animations","Unused","Connection","Pose offsets","Appearance"};
         const auto& xs=dashboard_layout::x;const auto& ws=dashboard_layout::width;
-        for(int g=0;g<7;++g){if(g==2||g==3||g==5)continue;auto tint=dashboard_theme::section[g];surfaceCard(xs[g],dashboard_layout::groupY[g],ws[g],dashboard_layout::groupHeight[g],tint);fitText(groups[g],xs[g]+23,dashboard_layout::groupY[g]+8,ws[g]-35,.85f,.88f,.93f,ui_type::heading);}
+        for(int g=0;g<7;++g){if(g==3||g==5)continue;auto tint=dashboard_theme::section[g];surfaceCard(xs[g],dashboard_layout::groupY[g],ws[g],dashboard_layout::groupHeight[g],tint);fitText(groups[g],xs[g]+23,dashboard_layout::groupY[g]+8,ws[g]-35,.85f,.88f,.93f,ui_type::heading);}
         std::string postureLine="Posture: "+t.value("posture",std::string("--"))+" | "+(fresh&&t.value("standing",false)?"Standing":"START stands NAO up");
         fitText(postureLine,xs[0]+10,dashboard_layout::groupY[0]+142,ws[0]-20,.85f,.94f,1,ui_type::secondary);
         auto preparation=state.value("preparation",J::object());
@@ -975,12 +1000,13 @@ void main(){
         bool poseFeedback=preparation.value("busy",false)||poseFailure||poseMessage.find("Posture cancelled:")==0;
         const std::string actionStatus=network->status();
         if(actionStatus.find("changing NAO posture")!=std::string::npos){poseMessage="Pose refused: press STOP first";poseFeedback=poseFailure=true;}
-        if(!poseFeedback)poseMessage=fresh&&t.value("walking_ready",false)?"Walking ready / speed 50%":"Walking paused / speed 50%";
+        if(!poseFeedback){if(t.value("height_recovering",false))poseMessage="Raising to stand / walking waits";else if(t.value("height_lowered",false))poseMessage="Lowered / walking raises NAO first";else poseMessage=fresh&&t.value("walking_ready",false)?"Walking ready / speed 50%":"Walking paused / speed 50%";}
         fitText(poseMessage,xs[0]+10,dashboard_layout::groupY[0]+161,ws[0]-20,poseFailure?1.f:.65f,poseFailure?.45f:.8f,poseFailure?.3f:.86f,ui_type::secondary);
         fitText("NAO POSTURES / B cancels",xs[0]+10,dashboard_layout::groupY[0]+183,ws[0]-20,.55f,.85f,.75f,ui_type::secondary);
         pixelLine(xs[1]+12,dashboard_layout::groupY[1]+136,xs[1]+ws[1]-12,dashboard_layout::groupY[1]+136,1,.21f,.25f,.34f);
+        fitText(state.value("native_animations",J::array()).empty()?"Native clips unavailable":"B cancels / auto resume",1130,dashboard_layout::groupY[2]+11,238,.65f,.8f,.86f,ui_type::secondary);
         fitText("PHRASES",xs[1]+12,dashboard_layout::groupY[1]+139,ws[1]-24,.7f,.75f,.9f,ui_type::secondary);
-        if(layoutEditing){for(int i=0;i<floating_layout::count;++i){auto r=floating_layout::cards[i];pixelLine(r.x+5,r.y+2,r.x+r.w-5,r.y+2,3,.25f,.65f,1);if(i<floating_layout::count-2)panel(r.x+r.w*.5f-20,r.y+4,40,3,.4f,.75f,1,1.5f);}}
+        if(layoutEditing){for(int i=0;i<floating_layout::count;++i){auto r=floating_layout::cards[i];pixelLine(r.x+5,r.y+2,r.x+r.w-5,r.y+2,3,.25f,.65f,1);if(i!=7&&i!=8)panel(r.x+r.w*.5f-20,r.y+4,40,3,.4f,.75f,1,1.5f);}}
         auto items=menuActions();menuIndex=std::max(0,std::min(menuIndex,int(items.size())-1));
         const std::string playingAnimation=state.value("gesture",std::string());
         for(int i=0;i<(int)items.size();++i){auto r=menuRect(i,items);bool selected=(menuOpen||pointerGrip.held)&&i==menuIndex&&(!pointerGrip.held||(pointerValid&&menuHit(pointer.x,pointer.y)==i));int g=menuGroup(items[i]);bool stop=items[i].action.value("cmd",std::string())=="local_stop";
@@ -991,7 +1017,7 @@ void main(){
             if(disabledAnimation)selected=false;else if(playingButton)selected=true;
             
             if(command=="local_layout"||command=="local_help"){headerIcon(command,r,selected);continue;}
-            if(command.find("local_panel_")==0){if(!(windowGesture||pointerGrip.held&&pointerValid&&dashboard_layout::windowHover(pointer.x,pointer.y)))continue;float cx=r.x+r.w*.5f,cy=r.y+r.h*.5f;panel(r.x,r.y,r.w,r.h,selected?.15f:.07f,selected?.32f:.12f,selected?.4f:.17f,r.h*.5f);
+            if(command.find("local_panel_")==0){float cx=r.x+r.w*.5f,cy=r.y+r.h*.5f;panel(r.x,r.y,r.w,r.h,selected?.15f:.07f,selected?.32f:.12f,selected?.4f:.17f,r.h*.5f);
                 if(command=="local_panel_move")panel(cx-70,cy-3,140,6,.7f,.78f,.86f,3);
                 else if(command=="local_panel_resize"){pixelLine(cx-9,cy+8,cx+9,cy-8,2,.85f,.9f,1);pixelLine(cx-9,cy+1,cx-9,cy+8,2,.85f,.9f,1);pixelLine(cx-9,cy+8,cx-2,cy+8,2,.85f,.9f,1);pixelLine(cx+9,cy-8,cx+9,cy-1,2,.85f,.9f,1);pixelLine(cx+2,cy-8,cx+9,cy-8,2,.85f,.9f,1);}
                 else if(command=="local_panel_lock"){float green=roomLocked?.95f:.75f;pixelLine(cx-7,cy-9,cx+7,cy-9,2,.65f,green,1);pixelLine(cx-5,cy-9,cx-5,cy+2,2,.65f,green,1);pixelLine(cx+5,cy-9,cx+5,cy+2,2,.65f,green,1);pixelLine(cx-8,cy+2,cx+8,cy+2,2,.65f,green,1);pixelLine(cx,cy+2,cx,cy+11,2,.65f,green,1);if(!roomLocked)pixelLine(cx-10,cy+11,cx+10,cy-12,2,.8f,.85f,.9f);}
@@ -1159,6 +1185,11 @@ void main(){
         glBindFramebuffer(GL_FRAMEBUFFER,framebuffer);glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,images[index].image,0);glViewport(0,0,W,H);glClearColor(0,0,0,0);glClear(GL_COLOR_BUFFER_BIT);glDisable(GL_DEPTH_TEST);glEnable(GL_BLEND);glBlendFuncSeparate(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);glBindTexture(GL_TEXTURE_2D,texture);
         glUseProgram(program);glUniform1f(glGetUniformLocation(program,"canvasOffset"),0);glUniform1f(glGetUniformLocation(program,"canvasWidth"),W);
         drawStudio(tracking);
+        if(dashboardPreview&&network->connected&&network->lastSnapshot>0){
+            dashboardPreview=false;std::vector<unsigned char> pixels(W*H*4);glReadPixels(0,0,W,H,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
+            std::string path=std::string(app->activity->externalDataPath)+"/dashboard-preview.ppm";
+            if(FILE* out=std::fopen(path.c_str(),"wb")){std::fprintf(out,"P6\n%d %d\n255\n",W,H);for(int y=H-1;y>=0;--y)for(int x=0;x<W;++x)std::fwrite(pixels.data()+(y*W+x)*4,1,3,out);std::fclose(out);__android_log_print(ANDROID_LOG_INFO,"TeleNao","Dashboard preview saved");}
+        }
         if(helpOpen){glViewport(W,0,HELP_W,H);glUniform1f(glGetUniformLocation(program,"canvasOffset"),W);glUniform1f(glGetUniformLocation(program,"canvasWidth"),HELP_W);drawScaleX=float(W)/HELP_W;drawHelp();drawScaleX=1;}
         glFlush();
     }
@@ -1192,6 +1223,7 @@ void main(){
         XrFrameEndInfo end{XR_TYPE_FRAME_END_INFO};end.displayTime=state.predictedDisplayTime;end.environmentBlendMode=XR_ENVIRONMENT_BLEND_MODE_OPAQUE;end.layerCount=count;end.layers=count?layers.data():nullptr;XR(xrEndFrame(session,&end));
     }
 public:
+    void stopControl(){if(network)network->requestStop();}
     explicit App(android_app* a):app(a){
         JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);
         auto cls=env->GetObjectClass(app->activity->clazz);
@@ -1200,6 +1232,7 @@ public:
         env->ReleaseStringUTFChars(label,raw);env->DeleteLocalRef(label);env->DeleteLocalRef(cls);
     }
     void run(){
+        dashboardPreview=extra("dashboard_preview")=="1";
         resetLayout();try{auto saved=nlohmann::json::parse(extra("layout_state"));if(saved.value("version",0)==1&&decodeLayout(saved.at("current"))){floating=saved.value("floating",false);if(saved.contains("presets")&&saved["presets"].is_array()&&saved["presets"].size()==3)layoutPresets=saved["presets"];layoutSlot=std::max(0,std::min(2,saved.value("slot",0)));}}catch(...){}
         driveResponse=std::max(0,std::min(2,int(std::strtol(extra("drive_response").c_str(),nullptr,10))));roomLocked=extra("room_locked")=="true";anchorPending=roomLocked;poseMirror=extra("pose_mirror")=="true";showLaserMap=extra("view")=="map";tabletPreview=extra("tablet_preview")!="false";fahrenheit=extra("fahrenheit")=="true";
         try{ledTarget=std::max(0,std::min(4,std::stoi(extra("led_target"))));auto saved=nlohmann::json::parse(extra("led_swatches"));if(saved.is_array()&&(saved.size()==3||saved.size()==5))for(int i=0;i<(int)saved.size();++i)if(saved[i].is_number_integer())ledSwatches[i]=saved[i].get<int>()<0?((i==2||i==3)?6:1):std::min(6,saved[i].get<int>());}catch(...){}
@@ -1220,14 +1253,32 @@ public:
         showLaserMap=false;network.reset(new Network(extra("host"),extra("token")));network->setDepthStreaming(false);network->setCameraStreaming(0,extra("top_streaming")!="false");network->setCameraStreaming(1,extra("bottom_streaming")!="false");network->start();
         while(!app->destroyRequested){android_poll_source* source=nullptr;int events;while(ALooper_pollOnce(running?0:50,nullptr,&events,(void**)&source)>=0){if(source)source->process(app,source);if(app->destroyRequested)break;}
             XrEventDataBuffer event{XR_TYPE_EVENT_DATA_BUFFER};while(xrPollEvent(instance,&event)==XR_SUCCESS){if(event.type==XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED){auto* changed=(XrEventDataSessionStateChanged*)&event;focused=changed->state==XR_SESSION_STATE_FOCUSED;
-                if(!focused&&network){if(cardDrag>=0){cardDrag=-1;saveLayout();}windowGesture=0;startFlow.cancel();pendingGesture.cancel();network->requestStop();network->audioFocus=false;network->talk=false;}
+                if(!focused&&network){if(cardDrag>=0){cardDrag=-1;saveLayout();}windowGesture=0;startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();network->requestStop();network->audioFocus=false;network->talk=false;}
                 if(changed->state==XR_SESSION_STATE_READY){XrSessionBeginInfo begin{XR_TYPE_SESSION_BEGIN_INFO};begin.primaryViewConfigurationType=XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;XR(xrBeginSession(session,&begin));running=true;}
                 if(changed->state==XR_SESSION_STATE_STOPPING){running=false;XR(xrEndSession(session));}
                 if(changed->state==XR_SESSION_STATE_EXITING||changed->state==XR_SESSION_STATE_LOSS_PENDING)return;
-            }else if(event.type==XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING){if(cardDrag>=0){cardDrag=-1;saveLayout();}windowGesture=0;calibrated=false;startFlow.cancel();pendingGesture.cancel();network->requestStop();if(roomLocked){anchorPending=true;anchorRetryAt=((XrEventDataReferenceSpaceChangePending*)&event)->changeTime;}}event={XR_TYPE_EVENT_DATA_BUFFER};}
+            }else if(event.type==XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING){if(cardDrag>=0){cardDrag=-1;saveLayout();}windowGesture=0;calibrated=false;startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();network->requestStop();if(roomLocked){anchorPending=true;anchorRetryAt=((XrEventDataReferenceSpaceChangePending*)&event)->changeTime;}}event={XR_TYPE_EVENT_DATA_BUFFER};}
             if(running&&!app->destroyRequested)frame();
         }
     }
     ~App(){if(network)network->stop();if(body&&destroyBody)destroyBody(body);if(passthroughLayer&&destroyPassthroughLayer)destroyPassthroughLayer(passthroughLayer);if(passthrough&&destroyPassthrough)destroyPassthrough(passthrough);if(raySwapchain)xrDestroySwapchain(raySwapchain);if(swapchain)xrDestroySwapchain(swapchain);if(aimSpace)xrDestroySpace(aimSpace);if(local)xrDestroySpace(local);if(viewSpace)xrDestroySpace(viewSpace);if(session)xrDestroySession(session);if(actionSet)xrDestroyActionSet(actionSet);if(instance)xrDestroyInstance(instance);if(display!=EGL_NO_DISPLAY){eglMakeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);if(context!=EGL_NO_CONTEXT)eglDestroyContext(display,context);if(surface!=EGL_NO_SURFACE)eglDestroySurface(display,surface);eglTerminate(display);}}
 };
-void android_main(android_app* app){try{App program(app);program.run();}catch(const std::exception& e){__android_log_print(ANDROID_LOG_ERROR,"TeleNao","%s",e.what());}ANativeActivity_finish(app->activity);}
+// NativeActivity waits synchronously for PAUSE/STOP/DESTROY acknowledgements.
+// OpenXR can end first; keep consuming Android commands until destruction.
+void android_main(android_app* app){
+    std::unique_ptr<App> program;
+    try{program.reset(new App(app));program->run();}
+    catch(const std::exception& e){__android_log_print(ANDROID_LOG_ERROR,"TeleNao","%s",e.what());}
+    if(program)program->stopControl();
+    if(!app->destroyRequested){
+        ANativeActivity_finish(app->activity);
+        while(!app->destroyRequested){
+            android_poll_source* source=nullptr;int events;
+            int result=ALooper_pollOnce(100,nullptr,&events,(void**)&source);
+            if(result>=0&&source)source->process(app,source);
+        }
+    }
+    __android_log_print(ANDROID_LOG_INFO,"TeleNao","Native lifecycle destruction acknowledged");
+    program.reset();
+    app->activity->vm->DetachCurrentThread();
+}

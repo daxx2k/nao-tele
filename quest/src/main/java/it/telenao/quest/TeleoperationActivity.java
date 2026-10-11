@@ -102,6 +102,7 @@ public class TeleoperationActivity extends NativeActivity {
         getIntent().putExtra("pose_offsets",prefs.getString("pose_offsets","[]"));
         getIntent().putExtra("led_target",Integer.toString(prefs.getInt("led_target",0)));
         getIntent().putExtra("led_swatches",prefs.getString("led_swatches","[1,1,6]"));
+        if((getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)==0){getIntent().removeExtra("dashboard_preview");}
         super.onCreate(state);
         naturalVoice=new NaturalVoice(this);
         prepareSpeechModel("en-US");

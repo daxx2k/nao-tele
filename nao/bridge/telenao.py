@@ -295,7 +295,7 @@ class Robot(object):
         # All waits are completion checks. Logical STOP and pose receipt never
         # wait on a physical braking/hold RPC; arming waits for verified completion.
         for channel,(future,began) in list(self.stop_pending.items()):
-            if channel in ('posture_stop','height_stop','animation_cancel','speech_cancel') and 'motion_drain' in self.stop_pending:continue
+            if channel in ('posture_stop','height_stop','animation_cancel','speech_cancel') and ('motion_drain' in self.stop_pending or 'native_action_cancel' in self.stop_pending):continue
             if not future.isFinished():
                 if clock()-began>2. and not self.stop_error:
                     self.stop_error='Stop '+channel+' acknowledgement stalled (>2 s)'
@@ -353,6 +353,8 @@ class Robot(object):
         torso=None
         angles=list(angles)
         angles[1]=clamp(angles[1],*HEAD_PITCH_LIMITS)
+        walking_requested=any(base)
+        if walking_requested:height=0.
         if not self.simulate and (not self.walking_ready or clock()-self.walking_checked_at>.75):
             base=[0.,0.,0.]
         # Blend from measured pose over three seconds. Limit both target velocity
@@ -361,7 +363,9 @@ class Robot(object):
         speech_owns_arms=self.speech_arms.poll(NAMES)
         if speech_owns_arms:base=[0.,0.,0.]
         dt = clamp(dt, .001, .05 if dt <= .075 else .03)
-        if height or self.height.lowered():base=[0.,0.,0.]
+        standing_target=self.height.restore_for_walking() if walking_requested or self.height.recovering else None
+        if standing_target is not None:height=0.
+        if height or self.height.lowered() or self.height.recovering:base=[0.,0.,0.]
         t = clamp((clock()-self.armed_at)/self.blend_seconds, 0., 1.)
         blend = t*t*(3.-2.*t)
         if torso is not None:
@@ -433,12 +437,20 @@ class Robot(object):
             # by the newest target rather than queued behind a slow motor call.
             for channel,(future,began) in list(self.motion_pending.items()):
                 if future.isFinished():
-                    try: future.value(0)
+                    try:
+                        result=future.value(0)
+                        if channel=='height_verify':self.height.confirm_standing_height(list(result),self.standing)
                     except Exception as exc: raise RuntimeError(channel+' command failed: '+str(exc))
                     del self.motion_pending[channel]
                 elif clock()-began>.5:
                     raise RuntimeError(channel+' command acknowledgement stalled (>500 ms)')
             self.submit_motion('head',lambda:self.motion.setAngles(NAMES[:2],out[:2],self.speed_fraction('head',t>=1),_async=True),target=tuple(out[:2]))
+            if standing_target is not None and not speech_owns_arms and t>=1:
+                if 'height' not in self.motion_pending:
+                    self.submit_motion('height',lambda:self.motion.setPositions('Torso',2,standing_target,.2,63,_async=True),target=tuple(standing_target))
+                if 'height_verify' not in self.motion_pending and clock()>=self.height.verify_at:
+                    self.height.verify_at=clock()+.1
+                    self.submit_motion('height_verify',lambda:self.motion.getPosition('Torso',2,True,_async=True))
             if height and not speech_owns_arms and t>=1 and 'height' not in self.motion_pending:
                 target=self.height.target(height,dt)
                 if target is not None:
@@ -663,12 +675,15 @@ class State(object):
                 self.stop_history=(self.stop_history+[dict(self.last_stop)])[-32:]
                 print('MOTION PAUSE: '+self.last_stop['reason'])
                 self.fault = self.last_stop['reason']
+            cancelled_native=None
             if self.preparing:
                 self.prepare_cancelled = True
                 self.prepare_message='Posture cancelled: '+str(reason or self.fault or 'STOP requested')
                 print(self.prepare_message)
                 if self.prepare_future is not None:
-                    try: self.prepare_future.cancel()
+                    try:
+                        self.prepare_future.cancel()
+                        cancelled_native=getattr(self.prepare_future,'cancel_future',None)
                     except Exception: pass
             self.armed = False
             self.heading.reset()
@@ -678,6 +693,7 @@ class State(object):
                 self.gesture_diagnostics.update(stage='cancelled',reason=reason or 'STOP')
             self.gesture = None
             self.robot.stop()
+            if cancelled_native is not None and not self.robot.simulate:self.robot.stop_pending['native_action_cancel']=(cancelled_native,clock())
             if False:  # NAO STOP holds pose and never schedules a neutral transition.
                 self.relax_operator=True
                 self.relax_at=clock()+.5
@@ -721,7 +737,8 @@ class State(object):
                 self.relax_tick(now,dt)
                 return None
             self.cancel_relax()
-            if not self.robot.simulate and (not self.robot.standing or now-self.robot.standing_checked_at>.75):
+            expected_height=(self.robot.height.lowered() or self.robot.height.recovering) and getattr(self.robot,'posture_family',None)=='Crouching' and getattr(self.robot,'torso_height',0.) is not None and getattr(self.robot,'torso_height',0.)>=self.robot.height.floor-.008
+            if not self.robot.simulate and ((not self.robot.standing and not expected_height) or now-self.robot.standing_checked_at>.75):
                 self.disarm('Telepresence stopped: standing posture is no longer confirmed')
                 return None
             if now - self.received > .18:
@@ -889,8 +906,9 @@ class Service(object):
         if name not in POSTURES:raise ValueError('Unsupported NAO posture')
         state=self.state
         with state.lock:
-            if state.armed or state.preparing or state.robot.stop_pending:
-                raise ValueError('STOP and wait before changing NAO posture')
+            if state.preparing:
+                raise ValueError('An action is already running / B cancels')
+            if state.armed:state.disarm('Native action selected')
             state.cancel_recovery();state.cancel_relax()
             state.preparing=True;state.prepare_cancelled=False
             state.preparation_revision+=1
@@ -898,9 +916,73 @@ class Service(object):
             state.robot.walking_ready=False
         self.spawn(self._prepare_posture,name)
 
+    def wait_action_stop(self):
+        deadline=clock()+4.
+        while True:
+            with self.state.lock:
+                if self.state.prepare_cancelled:raise RuntimeError('Action cancelled')
+                self.state.robot.poll_stop()
+                if not self.state.robot.stop_pending:
+                    if self.state.robot.stop_error:raise RuntimeError(self.state.robot.stop_error)
+                    return
+            if clock()>deadline:raise RuntimeError('Motion STOP did not complete')
+            time.sleep(.01)
+
+    def prepare_native_animation(self,name,confirmed=False):
+        from native_kicks import BOXES
+        if confirmed is not True or name not in BOXES:raise ValueError('Unknown or unconfirmed native animation')
+        state=self.state
+        with state.lock:
+            if state.preparing:raise ValueError('An action is already running / B cancels')
+            if state.armed:state.disarm('Native animation selected')
+            state.cancel_recovery();state.cancel_relax()
+            state.preparing=True;state.prepare_cancelled=False;state.preparation_revision+=1
+            state.prepare_message='Animation '+name+' / B cancels';state.robot.walking_ready=False
+        self.spawn(self._prepare_native_animation,name)
+
+    def _prepare_native_animation(self,name):
+        state=self.state;robot=state.robot
+        try:
+            self.wait_action_stop()
+            if not robot.simulate:
+                from native_kicks import read_kick,BEHAVIORS,BehaviorFuture
+                from speech_player import ClipFuture
+                if name in BEHAVIORS:
+                    manager=robot.session.service('ALBehaviorManager')
+                    play=lambda:BehaviorFuture(manager,BEHAVIORS[name])
+                else:
+                    names,angles,times=read_kick(name)
+                    play=lambda:ClipFuture(robot.motion,names,robot.motion.angleInterpolation(names,angles,times,True,_async=True))
+                operations=[]
+                if robot.life.getState(_async=True).value(2000)!='disabled':operations.append(lambda:robot.life.setState('disabled',_async=True))
+                operations.extend([lambda:robot.motion.wakeUp(_async=True),lambda:robot.posture.goToPosture('StandInit',POSTURE_SPEED,_async=True),play,lambda:robot.posture.goToPosture('StandInit',POSTURE_SPEED,_async=True)])
+                for operation in operations:
+                    with state.lock:
+                        if state.prepare_cancelled:raise RuntimeError('Animation cancelled')
+                        state.prepare_future=operation();future=state.prepare_future
+                    if future.value(90000) is False:raise RuntimeError('Native animation did not complete')
+                if robot.posture.getPostureFamily(_async=True).value(2000)!='Standing':raise RuntimeError('Standing posture was not confirmed')
+            with state.lock:
+                if state.prepare_cancelled:raise RuntimeError('Animation cancelled')
+                state.prepare_message='Animation '+name+' complete / standing';state.fault=''
+        except Exception as exc:
+            if not state.prepare_cancelled:state.prepare_message='Preparation failed: '+str(exc)
+            cancellation=None
+            if state.prepare_future is not None:
+                try:
+                    state.prepare_future.cancel();cancellation=getattr(state.prepare_future,'cancel_future',None)
+                except Exception:pass
+            try:robot.stop()
+            except Exception:pass
+            if cancellation is not None and not robot.simulate:robot.stop_pending['native_action_cancel']=(cancellation,clock())
+        finally:
+            with state.lock:
+                state.prepare_future=None;state.preparing=False;state.armed=False;state.latest=None
+
     def _prepare_posture(self,name):
         state=self.state;robot=state.robot
         try:
+            self.wait_action_stop()
             if not robot.simulate:
                 operations=[]
                 if robot.life.getState(_async=True).value(2000)!='disabled':
@@ -945,7 +1027,7 @@ class Service(object):
                 operations.append(('Preparing head and arm motors',lambda: robot.motion.setStiffnesses(NAMES,1.,_async=True)))
                 for label,operation in operations:
                     if operation is None:
-                        standing=robot.posture.getPostureFamily(_async=True).value(2000)=='Standing'
+                        standing=robot.posture.getPostureFamily(_async=True).value(2000)=='Standing' and robot.posture.getPosture(_async=True).value(2000) in ('Stand','StandInit')
                         torso=list(robot.motion.getPosition('Torso',2,True,_async=True).value(2000))
                         if not standing or len(torso)!=6 or torso[2]<.26:
                             # Only explicit START requests a native stand-up. Recovery never does.

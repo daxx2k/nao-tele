@@ -8,7 +8,7 @@ inline Rect contain(Rect bounds,int sourceWidth,int sourceHeight){if(sourceWidth
 // Semantic group indices remain stable; View and Pose offsets are retired.
 constexpr float x[]={960,960,960,0,20,0,960};
 constexpr float width[]={420,420,420,0,440,0,420};
-constexpr float groupY[]={64,356,806,0,794,0,660};
+constexpr float groupY[]={64,512,356,0,794,0,816};
 constexpr float groupHeight[]={280,292,144,0,156,0,134};
 constexpr Rect motionResponse{x[0]+8,groupY[0]+244,width[0]-16,28};
 constexpr Rect fusion{480,64,460,736};
@@ -45,7 +45,7 @@ inline Rect button(int group,int ordinal,int count){
         if(ordinal<5){float w=(width[group]-40)/5;return {x[group]+8+ordinal*(w+6),groupY[group]+33,w,28};}
         int i=ordinal-5;float w=(width[group]-52)/7;
         return {x[group]+8+i*(w+6),groupY[group]+80,w,44};}
-    int columns=group==1?(count>12?3:2):group==4?1:group==2?3:2;int rows=(count+columns-1)/columns;float h=std::min(48.f,(groupHeight[group]-33)/std::max(1,rows)),w=(width[group]-16-(columns-1)*6)/columns;return {x[group]+8+(ordinal%columns)*(w+6),groupY[group]+33+(ordinal/columns)*h,w,h-6};
+    int columns=group==1?(count>12?3:2):group==4?1:group==2?2:2;int rows=(count+columns-1)/columns;float h=std::min(48.f,(groupHeight[group]-33)/std::max(1,rows)),w=(width[group]-16-(columns-1)*6)/columns;return {x[group]+8+(ordinal%columns)*(w+6),groupY[group]+33+(ordinal/columns)*h,w,h-6};
 }
 struct PointerGrip {
     bool held=false,releaseTrigger=false;

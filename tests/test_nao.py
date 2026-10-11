@@ -26,7 +26,7 @@ class NaoTests(unittest.TestCase):
         r.motion.getPosition.return_value=Future([0.,0.,.31,0.,0.,0.])
         for name in ['setAngles','moveToward','stopMove']:
             getattr(r.motion,name).return_value=Future()
-        r.posture.stopMove.return_value=Future();r.posture.getPostureFamily.return_value=Future('Standing');r.standing=True;r.standing_checked_at=tp.clock();r.walking_ready=True;r.walking_checked_at=tp.clock()
+        r.posture.stopMove.return_value=Future();r.posture.getPosture.return_value=Future('StandInit');r.posture.getPostureFamily.return_value=Future('Standing');r.standing=True;r.standing_checked_at=tp.clock();r.walking_ready=True;r.walking_checked_at=tp.clock()
         return r
     def state(self):
         r=tp.Robot(True);r.arm();s=tp.State(r);s.session='pilot';s.peer='127.0.0.1';s.armed=True;return s
@@ -104,6 +104,29 @@ class NaoTests(unittest.TestCase):
         self.assertEqual(s.latest[1],[0.,.5,-.5]);self.assertEqual(s.robot.drive_response,2)
         for bad in (-1,3,True,1.5,'quick'):
             with self.assertRaises(ValueError):s.accept(self.packet(s,seq=2,drive_response=bad),'127.0.0.1',1.)
+    def test_walking_raises_height_before_any_step_and_waits_for_sensor(self):
+        r=self.robot();r.armed_at=tp.clock()-4;r.height.arm([0.,0.,.31,0.,0.,0.]);r.height.pose[2]=.275
+        r.motion.setPositions.return_value=Future();r.motion.getPosition.return_value=Future([0.,0.,.275,0.,0.,0.])
+        r.apply(r.previous,[.5,0.,0.],.02,height=-1.)
+        self.assertTrue(r.height.recovering);self.assertEqual(r.base,[0.,0.,0.])
+        self.assertAlmostEqual(r.motion.setPositions.call_args.args[2][2],.31);r.motion.moveToward.assert_not_called()
+        r.apply(r.previous,[.5,0.,0.],.02);r.motion.moveToward.assert_not_called()
+        r.height.verify_at=0.;r.motion.getPosition.return_value=Future([0.,0.,.31,0.,0.,0.])
+        r.apply(r.previous,[.5,0.,0.],.02);r.apply(r.previous,[.5,0.,0.],.02)
+        self.assertFalse(r.height.recovering)
+        r.apply(r.previous,[.5,0.,0.],.02);r.motion.moveToward.assert_called_once()
+    def test_height_sensor_alone_cannot_release_walking_before_standing_family(self):
+        from nao_height import NaoHeight
+        height=NaoHeight();height.arm([0.,0.,.31,0.,0.,0.]);height.pose[2]=.275
+        height.restore_for_walking();height.confirm_standing_height([0.,0.,.31,0.,0.,0.],False)
+        self.assertTrue(height.recovering)
+        height.confirm_standing_height([0.,0.,.31,0.,0.,0.],True);self.assertFalse(height.recovering)
+    def test_releasing_walk_during_height_restore_never_starts_gait(self):
+        r=self.robot();r.armed_at=tp.clock()-4;r.height.arm([0.,0.,.31,0.,0.,0.]);r.height.pose[2]=.275
+        r.motion.setPositions.return_value=Future();r.motion.getPosition.return_value=Future([0.,0.,.31,0.,0.,0.])
+        r.apply(r.previous,[.5,0.,0.],.02)
+        for _ in range(5):r.apply(r.previous,[0.,0.,0.],.02)
+        r.motion.moveToward.assert_not_called();self.assertEqual(r.base,[0.,0.,0.])
     def test_deadman_release_sends_zero_immediately(self):
         r=self.robot();r.apply(r.previous,[1.,0.,0.],.02);r.apply(r.previous,[0.,0.,0.],.02)
         self.assertEqual(r.base,[0.,0.,0.]);r.motion.stopMove.assert_called_with(_async=True)
@@ -171,7 +194,7 @@ class NaoTests(unittest.TestCase):
     def test_height_uses_native_cartesian_torso_and_excludes_walking(self):
         r=self.robot();r.height.arm([0.,0.,.31,0.,0.,0.]);r.armed_at=tp.clock()-4
         r.motion.setPositions.return_value=Future()
-        r.apply(r.previous,[1.,0.,0.],.04,height=-1.)
+        r.apply(r.previous,[0.,0.,0.],.04,height=-1.)
         call=r.motion.setPositions.call_args
         self.assertEqual(call.args[0:2],('Torso',2));self.assertEqual(call.args[3:],(.2,63))
         self.assertLess(call.args[2][2],.31);self.assertEqual(r.base,[0.,0.,0.])
@@ -193,12 +216,34 @@ class NaoTests(unittest.TestCase):
         with self.assertRaises(ValueError):r.begin_animation('wave_left')
     def service(self):
         svc=tp.Service.__new__(tp.Service);svc.state=tp.State(tp.Robot(True));svc.spawn=Mock();return svc
-    def test_preset_is_allowlisted_confirmed_and_only_when_stopped(self):
+    def test_preset_is_allowlisted_confirmed_and_can_pause_active_tracking(self):
         svc=self.service()
         for name,confirmed in [('StandInit',False),('StandZero',True),('arbitrary',True)]:
             with self.assertRaises(ValueError):svc.prepare_posture(name,confirmed)
         svc.state.armed=True
-        with self.assertRaises(ValueError):svc.prepare_posture('Sit',True)
+        svc.prepare_posture('Sit',True)
+        self.assertFalse(svc.state.armed);self.assertTrue(svc.state.preparing)
+        svc.spawn.assert_called_once_with(svc._prepare_posture,'Sit')
+    def test_native_animation_accepts_active_pilot_and_stays_disarmed(self):
+        svc=self.service();svc.state.armed=True
+        svc.prepare_native_animation('kick_left',True)
+        self.assertTrue(svc.state.preparing);self.assertFalse(svc.state.armed)
+        svc.spawn.assert_called_once_with(svc._prepare_native_animation,'kick_left')
+    def test_official_dance_runs_native_behavior_without_rewriting_joint_curves(self):
+        svc=self.service();r=svc.state.robot=self.robot();svc.state.preparing=True
+        r.life.getState.return_value=Future('disabled');r.motion.wakeUp.return_value=Future()
+        r.posture.goToPosture.return_value=Future(True)
+        manager=r.session.service.return_value;manager.runBehavior.return_value=Future()
+        svc._prepare_native_animation('dance')
+        manager.runBehavior.assert_called_once_with('animations/Stand/Waiting/FunnyDancer_1',_async=True)
+        r.motion.angleInterpolation.assert_not_called();r.motion.getLimits.assert_not_called()
+        self.assertFalse(svc.state.armed);self.assertFalse(svc.state.preparing)
+    def test_native_animation_is_confirmed_allowlisted_and_not_overlapping(self):
+        svc=self.service()
+        for name,confirm in [('kick_left',False),('arbitrary',True)]:
+            with self.assertRaises(ValueError):svc.prepare_native_animation(name,confirm)
+        svc.state.preparing=True
+        with self.assertRaises(ValueError):svc.prepare_native_animation('kick_right',True)
         svc.spawn.assert_not_called()
     def test_preset_dispatches_native_posture_without_arming(self):
         svc=self.service();svc.prepare_posture('Sit',True)
@@ -234,6 +279,12 @@ class NaoTests(unittest.TestCase):
             r.session.service.return_value.getListData.assert_not_called()
             self.assertEqual(svc.state.prepare_message,'Posture Sit ready / press START')
             self.assertFalse(svc.state.armed)
+    def test_start_stands_from_crouch_even_when_firmware_family_is_standing(self):
+        svc=self.service();r=svc.state.robot=self.robot()
+        r.life.getState.return_value=Future('disabled');r.posture.getPosture.return_value=Future('Crouch')
+        r.motion.wakeUp.return_value=Future();r.posture.goToPosture.return_value=Future(True)
+        svc._prepare_motion()
+        r.posture.goToPosture.assert_called_once_with('StandInit',1.0,_async=True)
     def test_start_does_not_add_a_thermal_rejection(self):
         r=self.robot();r.session.service.return_value.getListData.return_value=Future([1]+[0]*24)
         r.arm()

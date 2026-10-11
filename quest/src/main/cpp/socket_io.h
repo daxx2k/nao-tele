@@ -8,8 +8,12 @@
 #include <cerrno>
 #include <stdexcept>
 #include <string>
+#include <atomic>
+#include <chrono>
+#include <algorithm>
 namespace transport {
-inline int connectTo(const std::string& host,int port,int type=SOCK_STREAM,int deadlineMs=1500){
+inline int connectTo(const std::string& host,int port,int type=SOCK_STREAM,int deadlineMs=1500,const std::atomic<bool>* running=nullptr){
+    if(running&&!running->load())throw std::runtime_error("Connection cancelled");
     int s=socket(AF_INET,type,0);if(s<0)throw std::runtime_error("Socket unavailable");
     try{
         sockaddr_in addr{};addr.sin_family=AF_INET;addr.sin_port=htons(port);
@@ -18,7 +22,15 @@ inline int connectTo(const std::string& host,int port,int type=SOCK_STREAM,int d
         if(flags<0||fcntl(s,F_SETFL,flags|O_NONBLOCK)<0)throw std::runtime_error("Socket setup failed");
         if(connect(s,(sockaddr*)&addr,sizeof(addr))<0){
             if(errno!=EINPROGRESS)throw std::runtime_error("NAO unreachable: check network and robot service");
-            pollfd p{s,POLLOUT,0};int ready=poll(&p,1,deadlineMs),error=0;socklen_t size=sizeof(error);
+            pollfd p{s,POLLOUT,0};int ready=0,error=0;socklen_t size=sizeof(error);
+            auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(deadlineMs);
+            while(ready==0){
+                if(running&&!running->load())throw std::runtime_error("Connection cancelled");
+                int remaining=int(std::chrono::duration_cast<std::chrono::milliseconds>(deadline-std::chrono::steady_clock::now()).count());
+                if(remaining<=0)break;
+                ready=poll(&p,1,std::min(remaining,50));
+                if(ready<0&&errno==EINTR)ready=0;
+            }
             if(ready<=0||getsockopt(s,SOL_SOCKET,SO_ERROR,&error,&size)<0||error)
                 throw std::runtime_error("NAO did not respond: retrying automatically");
         }

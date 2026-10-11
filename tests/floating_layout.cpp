@@ -4,6 +4,9 @@
 bool near(float a,float b){return std::abs(a-b)<1e-5f;}
 int main(){
     using namespace floating_layout;
+    auto oldVoice=initial(5);oldVoice.position.y=(530.f-502.f)/1400.f;migrateDefault(5,oldVoice,1);assert(near(oldVoice.position.y,initial(5).position.y));
+    auto custom=oldVoice;custom.position.x+=.1f;auto savedCustom=custom;migrateDefault(5,custom,1);assert(near(custom.position.x,savedCustom.position.x)&&near(custom.position.y,savedCustom.position.y));
+    assert(cards[9].y==cards[4].y+cards[4].h+12);
     XrPosef root{{0,.70710678f,0,.70710678f},{2,1.6f,3}};
     XrPosef grab{{0,0,0,1},{.1f,.2f,-1}};
     auto away=panel_anchor::depth(grab,1,.05f),closer=panel_anchor::depth(grab,-1,.05f);

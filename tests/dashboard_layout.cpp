@@ -6,6 +6,9 @@
 #include <cassert>
 #include <cstdio>
 int main(){using namespace dashboard_layout;
+    assert(groupY[2]==groupY[0]+groupHeight[0]+12);
+    assert(groupY[1]==groupY[2]+groupHeight[2]+12);
+    assert(groupY[6]==groupY[1]+groupHeight[1]+12);
     assert(motionResponse.y+motionResponse.h<=groupY[0]+groupHeight[0]);
     for(int i=0;i<7;++i){auto r=button(0,i,7);assert(r.y+r.h<=motionResponse.y);}
     for(auto r:{headerLayout,headerHelp})assert(r.w>=48&&r.h>=48&&r.x>=20&&r.x+r.w<=1380&&r.y>=0&&r.y+r.h<=56);
