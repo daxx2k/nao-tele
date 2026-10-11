@@ -6,10 +6,20 @@
 #include <cassert>
 #include <cstdio>
 int main(){using namespace dashboard_layout;
+    assert(std::abs(700+1400*helpOffsetWidthFraction(620,.85f,1400)-620*.85f*.5f+12*.85f-1380-panelGap)<.001f);
+    assert(fusion.x-(comparison.x+comparison.w)==panelGap);
+    assert(x[0]-(fusion.x+fusion.w)==panelGap);
+    assert(comparison.y-(header.y+header.h)==panelGap);
+    assert(temperatures.y-(comparison.y+comparison.h)==panelGap);
+    assert(groupY[4]-(temperatures.y+temperatures.h)==panelGap);
+    assert(statusBar.y-bodyBottom==panelGap);
+    assert(windowMove.y-(statusBar.y+statusBar.h)==panelGap);
+    assert(cameras[1].y-(cameras[0].y+cameras[0].h)==panelGap);
+    assert(ledAvatar.y-(fusion.y+fusion.h)==panelGap);
     assert(groupY[2]==groupY[0]+groupHeight[0]+12);
     assert(groupY[1]==groupY[2]+groupHeight[2]+12);
-    assert(groupY[6]==groupY[1]+groupHeight[1]+8);
-    assert(ledAvatar.x==fusion.x&&ledAvatar.w==900&&ledAvatar.y>fusion.y+fusion.h&&ledAvatar.y+ledAvatar.h==950);
+    assert(groupY[6]==groupY[1]+groupHeight[1]+panelGap);
+    assert(ledAvatar.x==fusion.x&&ledAvatar.w==908&&ledAvatar.y>fusion.y+fusion.h&&ledAvatar.y+ledAvatar.h==950);
     assert(motionResponse.y+motionResponse.h<=groupY[0]+groupHeight[0]);
     for(int i=0;i<7;++i){auto r=button(0,i,7);assert(r.y+r.h<=motionResponse.y);}
     for(auto r:{headerLayout,headerHelp})assert(r.w>=48&&r.h>=48&&r.x>=20&&r.x+r.w<=1380&&r.y>=0&&r.y+r.h<=56);
@@ -52,7 +62,7 @@ int main(){using namespace dashboard_layout;
     assert(dashboard_theme::batteryColor(NAN)==dashboard_theme::secondary);
     for(float temp:{0.f,30.f,50.f,100.f}){auto c=thermalColor(temp,false);assert(c[1]>.2f);for(float channel:c)assert(channel>=0&&channel<=1);}
     assert(cameras[0].x==cameras[1].x&&cameras[1].y==cameras[0].y+cameras[0].h+cameraGap);
-    assert(cameraGap==20&&cameraBlendPixels<.03f*cameras[1].h&&cameraCornerRadius<=8);
+    assert(cameraGap==panelGap&&cameraBlendPixels<.03f*cameras[1].h&&cameraCornerRadius<=8);
     for(int c=0;c<2;++c){auto fullCamera=contain(cameras[c],320,240);assert(fullCamera.w==cameras[c].w&&fullCamera.h==cameras[c].h);assert(cameras[c].x>=fusion.x&&cameras[c].x+cameras[c].w<=fusion.x+fusion.w&&cameras[c].y+cameras[c].h<=fusion.y+fusion.h);}
     auto full=contain(cameras[2],320,240),wide=contain(cameras[2],1920,1080),square=contain(cameras[2],512,512);
     assert(full.w<=cameras[2].w&&full.h<=cameras[2].h&&std::abs(full.w/full.h-4.f/3)<1e-5);
@@ -64,7 +74,7 @@ int main(){using namespace dashboard_layout;
     assert(tablet.y>fusion.y+fusion.h&&tablet.y+tablet.h<=950);
     assert(tablet.y<=cameras[2].y&&tablet.y+tablet.h>=cameras[2].y+cameras[2].h);
     assert(groupY[4]>temperatures.y+temperatures.h&&x[4]==comparison.x);
-    assert(fusion.w==460&&cameras[0].w==444&&depthCard.x+depthCard.w<=lidarCard.x&&lidarCard.x+lidarCard.w<=fusion.x+fusion.w);
+    assert(fusion.w==476&&cameras[0].w==444&&depthCard.x+depthCard.w<=lidarCard.x&&lidarCard.x+lidarCard.w<=fusion.x+fusion.w);
     assert(temperatures.w==440&&temperatures.h>240&&comparison.y+comparison.h<temperatures.y);
     assert(groupHeight[4]<170);
     for(int i=0;i<20;++i){auto tile=temperatureTile(i);assert(temperatureAt(tile.x+2,tile.y+2)==i);assert(tile.h>40&&tile.y+tile.h<temperatures.y+temperatures.h-18);}

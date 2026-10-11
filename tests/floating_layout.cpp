@@ -7,6 +7,10 @@ int main(){
     auto oldVoice=initial(5);oldVoice.position.y=(530.f-502.f)/1400.f;migrateDefault(5,oldVoice,1);assert(near(oldVoice.position.y,initial(5).position.y));
     auto custom=oldVoice;custom.position.x+=.1f;auto savedCustom=custom;migrateDefault(5,custom,1);assert(near(custom.position.x,savedCustom.position.x)&&near(custom.position.y,savedCustom.position.y));
     assert(cards[9].y==cards[4].y+cards[4].h+12);
+    for(int i=0;i<floating_layout::count;++i){auto r=previousCards[i];XrPosef old{{0,0,0,1},{(r.x+r.w*.5f)/1400.f-.5f,(530.f-r.y-r.h*.5f)/1400.f,0}};
+        auto custom=old;custom.position.x+=.123f;migrateDefault(i,custom,1);assert(near(custom.position.x,old.position.x+.123f));
+        migrateDefault(i,old,1);auto expected=initial(i);assert(near(old.position.x,expected.position.x)&&near(old.position.y,expected.position.y));}
+    XrPosef oldAppearance{{0,0,0,1},{1170.f/1400.f-.5f,(530.f-883.f)/1400.f,0}};migrateDefault(6,oldAppearance,1);assert(near(oldAppearance.position.x,initial(6).position.x)&&near(oldAppearance.position.y,initial(6).position.y));
     XrPosef root{{0,.70710678f,0,.70710678f},{2,1.6f,3}};
     XrPosef grab{{0,0,0,1},{.1f,.2f,-1}};
     auto away=panel_anchor::depth(grab,1,.05f),closer=panel_anchor::depth(grab,-1,.05f);

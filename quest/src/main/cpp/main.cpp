@@ -931,7 +931,7 @@ void main(){
         else{std::vector<Point> mouth;for(int i=0;i<=24;++i){float t=i/24.f,u=1-t;mouth.push_back({u*u*111+2*u*t*200+t*t*289,u*u*223+2*u*t*259+t*t*223});}for(int i=1;i<=24;++i){float t=i/24.f,u=1-t;mouth.push_back({u*u*289+2*u*t*200+t*t*111,u*u*223+2*u*t*370+t*t*223});}fill(mouth,{200,270},ink);oval(200,303,35,14,{244/255.f,96/255.f,111/255.f});}
     }
     XrPosef helpPose(XrPosef main){
-        XrPosef offset=identity();offset.position={panelWidth()*(.5f+.5f*HELP_W/W*HELP_SCALE)+.035f,0,0};
+        XrPosef offset=identity();offset.position={panelWidth()*dashboard_layout::helpOffsetWidthFraction(HELP_W,HELP_SCALE,W),0,0};
         return panel_anchor::compose(main,offset);
     }
     void drawNaoLeds(int hover=-1){
@@ -975,7 +975,7 @@ void main(){
         const char* titles[]={"Start & stop","Move NAO","Point & speak","Cameras & sensors","Window & layout","Postures & voice gestures"};
         const char* first[]={"Hold A + X for 0.75 seconds to start/pause.","Left stick: move. Right: turn / up-down height.","Right grip + trigger: point and click.","Top and Bottom can stream together.","Layout: grip + trigger on panel titles.","Select a posture any time. B cancels the movement."};
         const char* second[]={"Centre sticks, look forward. B stops.","Head, arms and triggers mirror your pose.","Left grip: release to speak + auto gestures.","Check battery, joint temperatures and LEDs.","Right stick scales. Save / Load / Reset.","Both grips toggle arm gestures. B cancels."};
-        for(int i=0;i<6;++i){float y=125+i*137;panel(28,y,HELP_W-56,123,.075f,.13f,.20f,18);
+        for(int i=0;i<6;++i){float y=125+i*(123+dashboard_layout::panelGap);panel(28,y,HELP_W-56,123,.075f,.13f,.20f,18);
             float cx=57,cy=y+29;panel(cx-16,cy-16,32,32,.12f,.30f,.40f,11);
             // Compact geometric icons remain legible without emoji font support.
             if(i==0){panel(cx-6,cy-7,4,14,.45f,1,.78f,1);panel(cx+2,cy-7,4,14,.45f,1,.78f,1);}
@@ -1118,10 +1118,10 @@ void main(){
         char status[240];bool recentAck=network->armed&&milliseconds()-network->lastAck<300;
         std::snprintf(status,sizeof(status),"%s  |  %s  |  Tracking %s  |  RTT %.0f ms / Queue %.0f ms / NAOqi %.1f ms  |  Recoveries %d",
             motion.c_str(),network->connected?"Connected":"Reconnecting",tracking?"ON":"OFF",recentAck?network->rtt.load():-1.,recentAck?network->queueMs.load():-1.,recentAck?network->applyMs.load():-1.,state.value("motion_diagnostics",J::object()).value("recovery_count",0));
-        fitText(status,36,964,W-72,.75f,.88f,.9f,ui_type::body);
+        fitText(status,36,dashboard_layout::statusBar.y+2,W-72,.75f,.88f,.9f,ui_type::body);
         std::string message=milliseconds()<inputMessageUntil?inputMessage:network->status();
         if(menuOpen&&milliseconds()>=inputMessageUntil)message=items[menuIndex].detail+" | "+network->status();
-        wrappedText(message,36,986,W-72,.95f,.8f,.55f,ui_type::secondary);
+        wrappedText(message,36,dashboard_layout::statusBar.y+24,W-72,.95f,.8f,.55f,ui_type::secondary);
         std::string audio=network->ttsVoice?voiceStatus:network->talk?"MIC LIVE":network->audioStatus();
         fitText(audio,36,1040,480,.6f,.85f,.86f,ui_type::secondary);
         if(milliseconds()-crtAt<320){float strength=.18f*std::max(0.f,1.f-float((milliseconds()-crtAt)/320.));drawCrt(crtBounds[0],crtBounds[1],crtBounds[2],crtBounds[3],strength);}
