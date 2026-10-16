@@ -136,10 +136,18 @@ public class TeleoperationActivity extends NativeActivity {
     public void saveOffsets(String value){getSharedPreferences("connection",MODE_PRIVATE).edit().putString("pose_offsets",value).apply();}
     public void saveLayout(String value){getSharedPreferences("connection",MODE_PRIVATE).edit().putString("layout_state",value).apply();}
     public void savePanelScale(float value){getSharedPreferences("connection",MODE_PRIVATE).edit().putFloat("panel_scale",Math.max(.65f,Math.min(1.f,value))).apply();}
+    private final java.util.concurrent.atomic.AtomicBoolean exitFailure=new java.util.concurrent.atomic.AtomicBoolean();
+    private boolean exitInProgress;
+    public boolean takeExitFailure(){return exitFailure.getAndSet(false);}
+    public void closeVrStudio(){runOnUiThread(()->{cancelVoice();HeadsetNavigation.closeStudio(this);});}
     public void exitTeleoperation(){runOnUiThread(()->{
+        if(exitInProgress||isFinishing()||isDestroyed())return;
+        exitInProgress=true;
         cancelVoice();
         SharedPreferences prefs=ConnectionStore.load(this);
-        it.telenao.lifecycle.ExitSession.close(this,prefs.getString("host",""),prefs.getString("token",""));
+        exitFailure.set(false);
+        it.telenao.lifecycle.ExitSession.close(this,prefs.getString("host",""),prefs.getString("token",""),
+            ()->HeadsetNavigation.closeStudio(this),message->{exitInProgress=false;exitFailure.set(true);});
     });}
     @Override public void onBackPressed(){exitTeleoperation();}
     public void openSettings(){runOnUiThread(()->{

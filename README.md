@@ -8,13 +8,15 @@ Standalone NAO app with Android application ID `it.telenao.quest`, private setti
 
 ## Download
 
-Experimental release **0.1.26-nao-test**. Use with an attentive operator and space around the robot.
+Experimental release **0.1.27-nao-test**. Use with an attentive operator and space around the robot.
 
 | Package | Download |
 |---|---|
-| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.26-nao-test/TeleNao-Quest.apk) |
+| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.27-nao-test/TeleNao-Quest.apk) |
 | APK, installer and instructions | [Installation bundle](https://github.com/daxx2k/nao-tele/releases) |
 | Source bundle and checksums | [Release assets](https://github.com/daxx2k/nao-tele/releases) |
+
+Exit now checks the bridge's nested STOP acknowledgement and returns to Quest Home after service shutdown. Offline sessions can close directly; an interrupted connection or unconfirmed STOP offers **Close VR studio only**, without claiming robot shutdown. Autonomous Life stays disabled. This client change targets V4-V6; V5/V6 hardware validation remains pending.
 
 ## Arm mapping and appearance
 

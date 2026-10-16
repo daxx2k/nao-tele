@@ -7,10 +7,18 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;
 
-/** A deliberate close is the only client action that resumes autonomous behavior. */
+/** Explicitly stop the NAO service before closing; Autonomous Life stays disabled. */
 public final class ExitSession {
+    public interface Failure { void failed(String message); }
     private ExitSession() {}
     public static void close(Activity activity, String host, String token) {
+        close(activity,host,token,activity::finishAndRemoveTask,message->{
+            if(!activity.isFinishing())new AlertDialog.Builder(activity)
+                .setTitle("Exit not confirmed").setMessage("NAO could not confirm service shutdown. "+message)
+                .setPositiveButton("OK",null).show();
+        });
+    }
+    public static void close(Activity activity, String host, String token, Runnable closed, Failure failed) {
         new Thread(() -> {
             try (Socket socket = new Socket()) {
                 socket.connect(new InetSocketAddress(host, 9570), 2500);
@@ -25,14 +33,11 @@ public final class ExitSession {
                 if (line == null) throw new IOException("Exit was not confirmed");
                 JSONObject reply = new JSONObject(line);
                 if (!reply.optBoolean("ok") || !reply.optBoolean("normal_mode"))
-                    throw new IOException(reply.optString("error", "Normal mode was not confirmed"));
-                activity.runOnUiThread(activity::finishAndRemoveTask);
+                    throw new IOException(reply.optString("error", "Service shutdown was not confirmed"));
+                activity.runOnUiThread(()->{if(!activity.isFinishing()&&!activity.isDestroyed())closed.run();});
             } catch (Exception error) {
                 activity.runOnUiThread(() -> {
-                    if (!activity.isFinishing()) new AlertDialog.Builder(activity)
-                        .setTitle("Exit not confirmed")
-                        .setMessage("NAO could not confirm normal mode. "+error.getMessage())
-                        .setPositiveButton("OK", null).show();
+                    if (!activity.isFinishing()&&!activity.isDestroyed())failed.failed(error.getMessage());
                 });
             }
         }, "TeleNao-exit").start();
