@@ -18,9 +18,9 @@ Experimental release **0.1.22-nao-test**. Use with an attentive operator and spa
 
 ## Arm mapping update in preparation
 
-Version **0.1.23-nao-test** ports the arm-mapping correction verified by the operator on TelePepper. The shoulder solver preserves elevation beyond vertical and uses live NAO joint bounds, including mirrored poses. Application-added arm position envelopes are removed; native NAO geometry, joint bounds and collision handling remain. Existing speed caps, walking controls, posture checks, STOP and gradual engagement are unchanged.
+Version **0.1.24-nao-test** ports the arm-mapping correction verified by the operator on TelePepper. The shoulder solver preserves elevation beyond vertical and uses live NAO joint bounds, including mirrored poses. Application-added arm position envelopes are removed; native NAO geometry, joint bounds and collision handling remain. Existing speed caps, walking controls, posture checks, STOP and gradual engagement are unchanged.
 
-This NAO update has automated and Quest-native geometry coverage; physical arm-tracking validation on NAO is still pending. The download above remains the latest published release until that trial.
+The arm reference now uses OpenXR gravity and shoulder heading instead of the estimated hip-to-spine tilt. This prevents a tilted body estimate from lowering a level forward arm. Quest-native regression tests cover 15/20-degree spine tilt, body headings, shoulder height differences and tracked elevation. The updated app is installed for operator validation; this is not a claim of a passed physical trial. The download above remains the latest published release until that trial.
 
 ## Compatibility
 
