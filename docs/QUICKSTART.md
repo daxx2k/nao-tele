@@ -10,7 +10,7 @@ CONNECT installs/starts the NAO head service using the owner SSH credentials; no
 
 Postures are whole-body movements. START restores StandInit when NAO is not already standing at a usable torso height, then calibrates and engages upper-body tracking. Telepresence stays paused throughout stand-up; B cancels.
 Forward/backward, sideways and rotation commands are capped at 50% normalized input. Translation diagonals share that cap. The maximum forward-step setting remains 6 cm. Actual step length varies with stick input. Torso mirroring is excluded. The Animations panel offers installed NAO Hello, Wave, left/right kicks, Dance and Tai Chi. B cancels. Standing completion resumes through START; fresh tracking and centred sticks are required.
-Exit stops the service and leaves autonomous life disabled.
+Explicit Exit confirms STOP, re-enables and verifies Autonomous Life, then stops the service and returns to Quest Home. NAO may resume installed autonomous activities. Disconnect, ordinary STOP and **Close VR studio only** never enable Autonomous Life. An unconfirmed handoff does not report successful exit. CONNECT updates the bundled robot bridge before use.
 Physical preset, gait, STOP and tracking validation must be supervised.
 
 Motion includes a saved **Response: Smooth / Balanced / Quick** setting. It changes the acceleration of walking and rotation, not the 50% command cap or upper-body tracking. Balanced is the default. Centred sticks and STOP still stop promptly through native stopMove. On the right stick, the dominant axis selects turning or continuous height; small vertical deviations during a turn do not trigger crouching.

@@ -397,7 +397,7 @@ void main(){
         rows.push_back({"Volume: "+std::to_string(speakerVolume)+"%","Cycle speaker volume 0 to 100% / 20% steps",{{"cmd","local_volume"}}});
         rows.push_back({fahrenheit?"F":"C","Switch Celsius / Fahrenheit",{{"cmd","local_temperature_unit"}}});
         rows.push_back({"Reconnect","Reconnect control, video and audio",{{"cmd","local_reconnect"}}});
-        rows.push_back({"Exit TeleNao","Stop control and close the NAO service",{{"cmd","local_exit_normal"}}});
+        rows.push_back({"Exit TeleNao","Stop control, resume Autonomous Life and close",{{"cmd","local_exit_normal"}}});
         if(exitUnconfirmed)rows.push_back({"Close VR studio only","NAO STOP / service exit was not confirmed",{{"cmd","local_exit_headset"}}});
         rows.push_back({"Connection settings","Edit robot address and pairing",{{"cmd","local_settings"}}});
         rows.push_back({"Move window","Grip + trigger: move freely / right stick scales",{{"cmd","local_panel_move"}}});
@@ -785,7 +785,7 @@ void main(){
             bool failed=env->CallBooleanMethod(app->activity->clazz,env->GetMethodID(cls,"takeExitFailure","()Z"));env->DeleteLocalRef(cls);
             if(failed){waitingExitNormal=false;exitUnconfirmed=true;menuOpen=true;
                 startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();pendingRobotLimit=nullptr;network->requestStop();
-                inputMessage="Service exit not confirmed: choose Close VR studio only or retry Exit";inputMessageUntil=milliseconds()+10000;}
+                inputMessage="Autonomous Life / exit not confirmed: choose Close VR studio only or retry Exit";inputMessageUntil=milliseconds()+10000;}
         }
         auto startConditions=startInput(tracked);
         auto startAction=startFlow.tick(milliseconds()/1000.,startConditions);

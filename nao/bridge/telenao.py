@@ -854,6 +854,8 @@ class Service(object):
         with self.exit_lock:
             if self.closing: raise ValueError('Exit already in progress')
             self.closing = True
+            normal_future = None
+            handoff_started = False
             try:
                 with self.state.lock:
                     self.state.disarm('Explicit TeleNao exit')
@@ -875,13 +877,44 @@ class Service(object):
                     if clock() >= deadline:
                         raise RuntimeError('Robot STOP not confirmed; autonomy remains disabled')
                     time.sleep(.02)
+                mode = 'solitary'
+                if not robot.simulate:
+                    with self.state.lock:
+                        if self.state.stop_generation != stopped_generation:
+                            raise RuntimeError('Exit cancelled by a newer STOP')
+                        handoff_started = True
+                        normal_future = robot.life.setState('solitary', _async=True)
+                    mode_deadline = clock() + 8.
+                    while not normal_future.isFinished():
+                        with self.state.lock:
+                            if self.state.stop_generation != stopped_generation:
+                                raise RuntimeError('Exit cancelled during autonomy handoff')
+                        if clock() >= mode_deadline:
+                            raise RuntimeError('Autonomous Life handoff timed out')
+                        time.sleep(.02)
+                    normal_future.value(0)
+                    mode = robot.life.getState(_async=True).value(2000)
+                    if mode not in ('solitary', 'interactive'):
+                        raise RuntimeError('Autonomous Life was not confirmed')
                 with self.state.lock:
+                    if self.state.stop_generation != stopped_generation:
+                        raise RuntimeError('Exit cancelled during autonomy handoff')
                     self.state.session = None
                     self.state.peer = None
                     self.normal_exit = True
-                return {'ok':True,'normal_mode':True,'service_stopping':True,'armed':False}
+                return {'ok':True,'normal_mode':True,'autonomous_life':mode,'service_stopping':True,'armed':False}
             except Exception:
-                self.closing = False
+                try:
+                    if handoff_started:
+                        try:
+                            if normal_future is not None:
+                                try: normal_future.cancel()
+                                except Exception: pass
+                            robot.life.setState('disabled', _async=True).value(8000)
+                        finally:
+                            with self.state.lock: robot.stop()
+                finally:
+                    self.closing = False
                 raise
 
     def spawn(self, fn, *args):
