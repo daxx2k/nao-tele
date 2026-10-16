@@ -1,6 +1,12 @@
 # TeleNao validation history
 
-Latest published release: 0.1.22-nao-test. Development build: 0.1.23-nao-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. NAO v4 H25 / NAOqi 2.1 has live validation; v5/v6 H25 are enabled, with physical validation pending.
+Current release: 0.1.28-nao-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. NAO v4 H25 / NAOqi 2.1 has live validation; v5/v6 H25 are enabled, with physical validation pending.
+
+## Explicit Exit and Autonomous Life (0.1.28)
+
+Explicit Exit waits for STOP, requests Autonomous Life `solitary`, and verifies `solitary` or `interactive` before releasing the pilot and stopping the service. A newer STOP, timeout or failed state confirmation cancels the handoff and attempts to restore `disabled` and stop motion. Ordinary disconnect and local-only close do not enable autonomy. The Quest client also requires the reported life state, so an older bridge's generic success reply cannot confirm this handoff. This uses the native [NAOqi 2.1 API](https://fileadmin.cs.lth.se/robot/nao/doc/naoqi/core/autonomouslife-api.html) and [NAOqi 2.8 API](https://app.osrw.de/NAO/aldeb-doc-2.8.7.4/naoqi/interaction/autonomouslife-api.html).
+
+Validation: all 118 Python tests passed, including 15 exit/protocol cases covering ordering, confirmation, timeout, interrupted handoff and rollback failures. The Quest APK built successfully and was installed as an update. Autonomous Life handoff was not triggered on hardware during this validation; V6 physical proof and the operator's Quest Exit interaction remain pending.
 
 Derived from the nao branch, with separate Android identity and private settings.
 

@@ -36,10 +36,91 @@ class ExitNormalTests(unittest.TestCase):
         s.state.session='pilot';s.state.peer='127.0.0.1';s.state.armed=True
         reply=s.return_to_normal({'confirmed':True})
         self.assertTrue(reply['normal_mode']);self.assertFalse(s.state.armed)
+        self.assertEqual(reply['autonomous_life'],'solitary')
         self.assertIsNone(s.state.session);self.assertTrue(s.normal_exit)
         self.assertLess(events.index('stop'),events.index('ack'))
-        self.assertNotIn('normal',events)
-        s.state.robot.life.setState.assert_not_called()
+        self.assertLess(events.index('ack'),events.index('normal'))
+        s.state.robot.life.setState.assert_called_once_with('solitary',_async=True)
+
+    def test_interactive_state_after_handoff_is_accepted(self):
+        s=self.make_service(False)
+        s.state.robot.life.getState.return_value.value.return_value='interactive'
+        reply=s.return_to_normal({'confirmed':True})
+        self.assertTrue(reply['normal_mode']);self.assertEqual(reply['autonomous_life'],'interactive')
+
+    def test_unconfirmed_autonomy_rolls_back_without_releasing_pilot(self):
+        s=self.make_service(False);s.state.session='pilot'
+        s.state.robot.life.getState.return_value.value.return_value='disabled'
+        with self.assertRaisesRegex(RuntimeError,'not confirmed'):
+            s.return_to_normal({'confirmed':True})
+        self.assertFalse(s.normal_exit);self.assertFalse(s.closing)
+        self.assertEqual(s.state.session,'pilot')
+        self.assertEqual([c.args[0] for c in s.state.robot.life.setState.call_args_list],['solitary','disabled'])
+
+    def test_handoff_query_failure_rolls_back(self):
+        s=self.make_service(False)
+        s.state.robot.life.getState.return_value.value.side_effect=RuntimeError('query failed')
+        with self.assertRaisesRegex(RuntimeError,'query failed'):
+            s.return_to_normal({'confirmed':True})
+        self.assertFalse(s.normal_exit)
+        self.assertEqual([c.args[0] for c in s.state.robot.life.setState.call_args_list],['solitary','disabled'])
+
+    def test_synchronous_handoff_failure_attempts_rollback(self):
+        s=self.make_service(False)
+        def change(mode,**kw):
+            if mode=='solitary':raise RuntimeError('handoff failed')
+            return Mock()
+        s.state.robot.life.setState.side_effect=change
+        with self.assertRaisesRegex(RuntimeError,'handoff failed'):
+            s.return_to_normal({'confirmed':True})
+        self.assertFalse(s.closing);self.assertFalse(s.normal_exit)
+        self.assertEqual([c.args[0] for c in s.state.robot.life.setState.call_args_list],['solitary','disabled'])
+
+    def test_stop_during_autonomy_handoff_rolls_back(self):
+        s=self.make_service(False)
+        def change(mode,**kw):
+            if mode=='solitary':s.state.stop_generation+=1
+            return Mock()
+        s.state.robot.life.setState.side_effect=change
+        with self.assertRaisesRegex(RuntimeError,'handoff'):
+            s.return_to_normal({'confirmed':True})
+        self.assertFalse(s.closing);self.assertFalse(s.normal_exit)
+        self.assertEqual([c.args[0] for c in s.state.robot.life.setState.call_args_list],['solitary','disabled'])
+
+    def test_stop_interrupts_unfinished_handoff(self):
+        s=self.make_service(False);pending=Mock();pending.isFinished.return_value=False
+        def change(mode,**kw):
+            if mode=='solitary':s.state.stop_generation+=1;return pending
+            return Mock()
+        s.state.robot.life.setState.side_effect=change
+        with self.assertRaisesRegex(RuntimeError,'handoff'):
+            s.return_to_normal({'confirmed':True})
+        pending.cancel.assert_called_once()
+        s.state.robot.life.getState.assert_not_called()
+        self.assertFalse(s.closing);self.assertFalse(s.normal_exit)
+
+    def test_handoff_timeout_cancels_and_rolls_back(self):
+        s=self.make_service(False);pending=Mock();pending.isFinished.return_value=False
+        s.state.robot.life.setState.side_effect=[pending,Mock()]
+        with patch.object(tp,'clock',side_effect=[0,0,9]):
+            with self.assertRaisesRegex(RuntimeError,'timed out'):
+                s.return_to_normal({'confirmed':True})
+        pending.cancel.assert_called_once()
+        self.assertFalse(s.normal_exit);self.assertFalse(s.closing)
+        self.assertEqual([c.args[0] for c in s.state.robot.life.setState.call_args_list],['solitary','disabled'])
+
+    def test_failed_rollback_still_attempts_stop_and_unblocks_exit(self):
+        s=self.make_service(False)
+        def change(mode,**kw):
+            future=Mock()
+            if mode=='solitary':s.state.stop_generation+=1
+            else:future.value.side_effect=RuntimeError('rollback failed')
+            return future
+        s.state.robot.life.setState.side_effect=change
+        with self.assertRaisesRegex(RuntimeError,'rollback failed'):
+            s.return_to_normal({'confirmed':True})
+        self.assertGreaterEqual(s.state.robot.stop.call_count,2)
+        self.assertFalse(s.closing);self.assertFalse(s.normal_exit)
 
     def test_stop_failure_never_enables_autonomy(self):
         s=self.make_service(False);s.state.robot.stop_error='Stop failed'

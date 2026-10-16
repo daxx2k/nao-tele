@@ -8,15 +8,15 @@ Standalone NAO app with Android application ID `it.telenao.quest`, private setti
 
 ## Download
 
-Experimental release **0.1.27-nao-test**. Use with an attentive operator and space around the robot.
+Experimental release **0.1.28-nao-test**. Use with an attentive operator and space around the robot.
 
 | Package | Download |
 |---|---|
-| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.27-nao-test/TeleNao-Quest.apk) |
+| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.28-nao-test/TeleNao-Quest.apk) |
 | APK, installer and instructions | [Installation bundle](https://github.com/daxx2k/nao-tele/releases) |
 | Source bundle and checksums | [Release assets](https://github.com/daxx2k/nao-tele/releases) |
 
-Exit now checks the bridge's nested STOP acknowledgement and returns to Quest Home after service shutdown. Offline sessions can close directly; an interrupted connection or unconfirmed STOP offers **Close VR studio only**, without claiming robot shutdown. Autonomous Life stays disabled. This client change targets V4-V6; V5/V6 hardware validation remains pending.
+Explicit Exit checks STOP, requests Autonomous Life (`solitary`) and verifies that NAOqi reports `solitary` or `interactive` before shutting down the bridge and returning to Quest Home. NAO may resume its installed autonomous activities. Disconnect, STOP and **Close VR studio only** never enable Autonomous Life. Failed or interrupted handoffs attempt to disable it again and stop motion; an unconfirmed exit keeps a local-close option. Offline sessions that never connected can close directly. CONNECT updates the bridge bundled in this release. V4-V6 are targeted; V5/V6 hardware validation remains pending.
 
 ## Arm mapping and appearance
 
