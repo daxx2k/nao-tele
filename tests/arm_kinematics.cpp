@@ -1,5 +1,5 @@
 #include "../quest/src/main/cpp/head_assist.h"
-#include "../quest/src/main/cpp/arm_kinematics.h"
+#include "../quest/src/main/cpp/arm_limits.h"
 #include "../quest/src/main/cpp/drive_input.h"
 #include "../quest/src/main/cpp/laser_map.h"
 #include <cassert>
@@ -36,8 +36,8 @@ int main(){
     v=drive.update(true,true,0,-1,0);assert(v[0]<-.49f);
     v=drive.update(true,true,1,0,0);assert(v[1]<-.39f);
     v=drive.update(true,true,-1,0,0);assert(v[1]>.39f);
-    v=drive.update(true,true,0,0,1);assert(v[2]<-.89f);
-    v=drive.update(true,true,0,0,-1);assert(v[2]>.89f);
+    v=drive.update(true,true,0,0,1);assert(v[2]<-.49f&&v[2]>=-.5f);
+    v=drive.update(true,true,0,0,-1);assert(v[2]>.49f&&v[2]<=.5f);
     v=drive.update(true,true,0,0,0);assert(v[0]==0&&v[1]==0&&v[2]==0);
     v=drive.update(true,false,0,1,1);assert(v[0]==0&&v[2]==0&&!drive.ready);
     drive.update(true,true,0,0,0);
@@ -62,12 +62,14 @@ int main(){
             Q q=solve(wrist,elbow,isLeft,seed,1.f);
             if(havePrevious){
                 Q continuous=solve(wrist,elbow,isLeft,previous,1.f);
-                if(cost(continuous,isLeft,wrist,elbow,1.f)<=cost(q,isLeft,wrist,elbow,1.f)+.000025f)q=continuous;
+                if(cost(continuous,isLeft,wrist,elbow,1.f)<=cost(q,isLeft,wrist,elbow,1.f)+.00000001f)q=continuous;
                 if(degrees>=89.9f)assert(std::abs(q[0]-previous[0])<.1f);
             }
             auto pose=forward(q,isLeft);
             assert(std::abs(std::atan2(pose.elbow.z,std::hypot(pose.elbow.x,pose.elbow.y)))<.035f);
-            assert(std::abs(std::atan2(pose.wrist.z,std::hypot(pose.wrist.x,pose.wrist.y)))<.035f);
+            // Native shoulder roll stops at 76 degrees; a horizontal human T-pose
+            // is unreachable. Bound the residual elevation without expanding limits.
+            assert(std::abs(std::atan2(pose.wrist.z,std::hypot(pose.wrist.x,pose.wrist.y)))<.08f);
             previous=q;havePrevious=true;
         }
     }
@@ -86,6 +88,47 @@ int main(){
         }
     }
     std::puts("PASS unequal human bone lengths preserve robot elbow and wrist directions");
+    // Reachable NAO poses above vertical retain their full pitch quadrant.
+    int overhead=0;
+    for(bool left:{true,false})for(float pitch:{-2.08f,-2.f,-1.8f,-1.5708f,-1.4f,-.7f})
+    for(float roll:{-.30f,0.f,.1f,.7f,1.30f})for(float yaw:{-2.05f,-1.f,0.f,1.f,2.05f})for(float bend:{.035f,.3f,1.f,1.5f}){
+        Q input{pitch,left?roll:-roll,yaw,left?-bend:bend};auto target=forward(input,left);
+        auto limits=nativeLimits(left);auto seed=directionSeed(target.elbow,sub(target.wrist,target.elbow),left,limits);
+        auto solved=solve(target.wrist,target.elbow,left,seed,1.f,limits);auto actual=forward(solved,left);
+        assert(length(sub(actual.elbow,target.elbow))<.002f);
+        assert(length(sub(actual.wrist,target.wrist))<.002f);
+        for(int k=0;k<4;++k)assert(solved[k]>=limits.lo[k]&&solved[k]<=limits.hi[k]);
+        if(roll==.1f||roll==.7f)assert(std::abs(seed[0]-pitch)<.001f);
+        ++overhead;
+    }
+    std::printf("PASS %d NAO overhead/native-envelope cases, both arms\n",overhead);
+    // Connected hardware bounds replace the fallback, including mirrored targets.
+    nlohmann::json status={{"native_arm_limits",{{"LShoulderPitch",{-2.07,2.06}},{"LShoulderRoll",{-.30,1.31}},
+        {"LElbowYaw",{-2.06,2.07}},{"LElbowRoll",{-1.53,-.04}}}}};
+    auto live=liveLimits(status,true);assert(std::abs(live.lo[0]+2.07f)<1e-6f);
+    auto mirrored=mirroredLimits(live);assert(mirrored.lo[1]==-live.hi[1]&&mirrored.hi[3]==-live.lo[3]);
+    auto input=Q{-2.f,1.3f,2.f,-1.5f};auto target=forward(input,true);
+    auto solved=solve(target.wrist,target.elbow,true,directionSeed(target.elbow,sub(target.wrist,target.elbow),true,live),1.f,live);
+    assert(length(sub(forward(solved,true).wrist,target.wrist))<.002f);
+    for(int k=0;k<4;++k)assert(solved[k]>=live.lo[k]&&solved[k]<=live.hi[k]);
+    assert(liveLimits({},true).lo==nativeLimits(true).lo);
+    status["native_arm_limits"]["LElbowYaw"]={2,-2};assert(liveLimits(status,true).hi==nativeLimits(true).hi);
+    std::puts("PASS asymmetric live bounds, mirror reflection and invalid-profile fallback");
+    // The production continuity comparison must follow a moving overhead target,
+    // rather than repeatedly accepting an older less accurate arm reference.
+    for(bool left:{true,false}){
+        auto limits=nativeLimits(left);Q previous{.2f,left?.5f:-.5f,.3f,left?-.8f:.8f};
+        for(int frame=0;frame<80;++frame){
+            Q targetQ{.2f-frame*.028f,left?.5f:-.5f,.3f,left?-.8f:.8f};auto goal=forward(targetQ,left);
+            auto seed=directionSeed(goal.elbow,sub(goal.wrist,goal.elbow),left,limits);
+            auto q=solve(goal.wrist,goal.elbow,left,seed,1.f,limits);
+            auto continuous=solve(goal.wrist,goal.elbow,left,previous,1.f,limits);
+            if(cost(continuous,left,goal.wrist,goal.elbow,1.f)<=cost(q,left,goal.wrist,goal.elbow,1.f)+.00000001f)q=continuous;
+            assert(length(sub(forward(q,left).wrist,goal.wrist))<.002f);previous=q;
+        }
+    }
+    std::puts("PASS moving overhead targets with production continuity selection");
+
     int count=0;float worst=0;
     auto began=std::chrono::steady_clock::now();
     for(bool left:{true,false})for(float pitch:{-1.f,-.4f,.3f,1.2f})for(float roll:{.1f,.5f,1.f})for(float yaw:{-1.2f,0.f,1.2f})for(float bend:{.2f,.8f,1.4f}){
@@ -119,10 +162,10 @@ int main(){
     auto lp=forward(l,true).wrist,rp=forward(r,false).wrist;
     assert(length(sub(lp,{rp.x,-rp.y,rp.z}))<.002f);
     std::printf("Near-face goal error %.2f mm\n",length(sub(lp,goal))*1000);
-    // This goal is inside the minimum reach with the conservative elbow limit;
+    // This goal is inside the minimum reach with the native elbow limit;
     // report the residual, rather than claiming exact full human workspace.
     assert(length(sub(lp,goal))<.026f);
-    // Impossible goals remain finite and inside the existing conservative limits.
+    // Impossible goals remain finite and inside the native joint limits.
     for(bool left:{true,false})for(V goal2:{V{2,0,2},V{0,0,0},V{-.5f,.5f,-.5f}}){
         auto q=solve(goal2,{0,0,-.18f},left,{1.3f,left?.05595f:-.05595f,0,left?-.5f:.5f});
         auto bounded=clamp(q,left);for(int k=0;k<4;++k){assert(std::isfinite(q[k]));assert(q[k]==bounded[k]);}

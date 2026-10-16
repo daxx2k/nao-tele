@@ -1,6 +1,6 @@
 # TeleNao validation history
 
-Current release: 0.1.13-nao-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. NAO v4 H25 / NAOqi 2.1 has live validation; v5/v6 H25 are enabled, with physical validation pending.
+Latest published release: 0.1.22-nao-test. Development build: 0.1.23-nao-test. Sections below record earlier configurations and tests, not necessarily current behavior. See README for current controls. NAO v4 H25 / NAOqi 2.1 has live validation; v5/v6 H25 are enabled, with physical validation pending.
 
 Derived from the nao branch, with separate Android identity and private settings.
 
@@ -244,3 +244,14 @@ Thermal refusal diagnostics now include the native status per affected joint rat
 ## TeleNao 0.1.13
 
 Removed the application-level posture temperature veto at the operator request. START, recovery and presets do not reject requests based on temperature readings or status. Temperature telemetry stays visible; native NAOqi torque reduction, motor shutdown and posture failure responses remain intact. Tests verify that presets dispatch with reported thermal statuses 1/2/3 or unavailable telemetry, while native failure and cancellation still leave control disarmed. No firmware protection setting was changed.
+
+## 0.1.23-nao-test: arm mapping (2026-10-16)
+
+- Ported the TelePepper 0.3.19 shoulder-elevation correction using NAO geometry: 105 mm upper arm, 15 mm lateral elbow offset and 55.95 mm forearm.
+- Replaced application-added shoulder, elbow and wrist position envelopes with live ALMotion.getLimits bounds. Published H25 values are the compatibility fallback; mirrored mapping reflects the destination arm bounds.
+- Kept NAO solver regularization for unreachable human poses and a level seed near the horizontal lateral singularity. Candidate selection no longer retains a less accurate previous pose merely through its old error allowance.
+- 107 Python regression checks pass, including native bound propagation, status export, posture gates, walking and STOP.
+- C++ tests pass on Windows and Quest: 1,200 overhead/native-envelope cases, 216 forward/inverse round trips, moving overhead targets with production continuity selection, asymmetric live bounds and mirror reflection, malformed-profile fallback, face reach, horizontal continuity and unreachable goals. Native shoulder roll cannot fully reproduce a human T-pose; tests measure the constrained residual (less than 0.08 rad wrist elevation) instead of expanding hardware bounds.
+- Updated stale native-test rotation expectations to match the existing 50% walking/rotation cap; production locomotion settings were not changed.
+- Speeds, gradual engagement, head policy, native collision safeguards, walking/height controls and STOP remain unchanged.
+- No NAO motion was initiated. Physical NAO tracking accuracy and latency remain unverified for this build. Pepper operator feedback does not substitute for that trial.
