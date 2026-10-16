@@ -21,3 +21,8 @@ The bottom grab handle and pin are always visible. A walking request while lower
 ## Appearance
 
 Point and click directly on the body illustration to select eyes, ears, the top of the head, torso or feet, then choose a swatch below. Corner marks identify the selection. Both ears select the same ear LED group, and both feet select the same foot group. Ears change blue brightness; the head changes white brightness. Eyes, chest and feet support RGB colours. Selecting a body part alone does not send a colour command or move the robot.
+
+
+## External power indicator
+
+A blue plug next to the battery means the robot reports its power supply connected. It is separate from the charging flag: a connected power supply does not necessarily mean active battery charging. The indicator hides when telemetry is stale or the firmware supplies no usable signal. It is never inferred from battery percentage. Older battery firmware may infer plug status itself; the app displays the robot report.
