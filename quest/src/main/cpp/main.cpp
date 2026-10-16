@@ -38,6 +38,7 @@
 #include "thermal_color.h"
 #include "dashboard_theme.h"
 #include "battery_status.h"
+#include "exit_flow.h"
 namespace ui_type {constexpr float heading=1.6f,body=1.5f,secondary=1.2f,primary=2.4f;}
 
 static void check(XrResult result,const char* what){if(XR_FAILED(result))throw std::runtime_error(std::string(what)+" ("+std::to_string(result)+")");}
@@ -92,7 +93,7 @@ class App {
     SpeechGripChord speechChord;
     nlohmann::json pendingRobotLimit;
     unsigned limitStopAck=0;double limitDeadline=0;
-    bool pendingExitNormal=false;unsigned exitStopAck=0;double exitDeadline=0;
+    bool pendingExitNormal=false,waitingExitNormal=false,exitUnconfirmed=false;unsigned exitStopAck=0;double exitDeadline=0,exitFailurePoll=0;
     XrVector2f pointer{},lastPointer{};
     const bool torsoAssist=false;
     std::array<float,2> torsoCommand{};
@@ -397,6 +398,7 @@ void main(){
         rows.push_back({fahrenheit?"F":"C","Switch Celsius / Fahrenheit",{{"cmd","local_temperature_unit"}}});
         rows.push_back({"Reconnect","Reconnect control, video and audio",{{"cmd","local_reconnect"}}});
         rows.push_back({"Exit TeleNao","Stop control and close the NAO service",{{"cmd","local_exit_normal"}}});
+        if(exitUnconfirmed)rows.push_back({"Close VR studio only","NAO STOP / service exit was not confirmed",{{"cmd","local_exit_headset"}}});
         rows.push_back({"Connection settings","Edit robot address and pairing",{{"cmd","local_settings"}}});
         rows.push_back({"Move window","Grip + trigger: move freely / right stick scales",{{"cmd","local_panel_move"}}});
         rows.push_back({roomLocked?"Unpin window":"Pin window","Toggle room lock / head follow",{{"cmd","local_panel_lock"}}});
@@ -416,7 +418,7 @@ void main(){
         if(c=="local_drive_response"||c=="local_robot_limit"||c=="local_pose_mirror"||c=="local_torso_assist"||c=="local_start"||c=="local_stop"||c=="local_calibrate"||c=="gesture"||c=="posture")return 0;
         if(c=="speech_gestures"||c=="speech_on_tablet"||c=="local_voice_mode"||c=="local_natural_voice"||c=="say"||c=="speech_stop"||c=="local_listen"||c=="local_volume")return 1;
         if(c=="tablet"||c=="native_animation")return 2;
-        if(c=="local_exit_normal"||c=="local_settings"||c=="local_reconnect"||c=="base_protection"||c=="local_panel_move"||c=="local_panel_resize"||c=="local_panel_lock"||c=="local_panel_here")return 4;
+        if(c=="local_exit_normal"||c=="local_exit_headset"||c=="local_settings"||c=="local_reconnect"||c=="base_protection"||c=="local_panel_move"||c=="local_panel_resize"||c=="local_panel_lock"||c=="local_panel_here")return 4;
         if(c.find("local_offset_")==0)return 5;
         if(c=="led"||c=="local_led_target"||c=="local_led_preset")return 6;
         return 2;
@@ -459,7 +461,7 @@ void main(){
     void beginStart(bool animation=false,bool recalibrate=false){
         if(nativeAction.waiting){inputMessage="Action in progress / B cancels";inputMessageUntil=milliseconds()+3000;return;}
         __android_log_print(ANDROID_LOG_INFO,"TeleNao","START selected connected=%d layout=%d window=%d focused=%d",int(network->connected.load()),layoutEditing,windowGesture,focused);
-        if(pendingExitNormal){inputMessage="Closing teleoperation / wait for STOP";inputMessageUntil=milliseconds()+3000;return;}
+        if(pendingExitNormal||waitingExitNormal){inputMessage="Closing teleoperation / wait for STOP";inputMessageUntil=milliseconds()+3000;return;}
         if(!pendingRobotLimit.is_null()){inputMessage="Changing limits / wait before START";inputMessageUntil=milliseconds()+3000;return;}
         if(windowGesture||layoutEditing){inputMessage="Release the window before starting motion";inputMessageUntil=milliseconds()+3000;return;}
         if(startFlow.active())return;
@@ -482,6 +484,9 @@ void main(){
             return;
         }
         if(layoutEditing&&cmd!="local_help")return;
+        if((pendingExitNormal||waitingExitNormal)&&cmd!="local_stop"&&cmd!="local_exit_normal"){
+            inputMessage="Closing TeleNao / wait for STOP";inputMessageUntil=milliseconds()+3000;return;
+        }
         if(cmd=="posture"||cmd=="native_animation"){
             if(nativeAction.waiting){inputMessage="Action in progress / B cancels";return;}
             startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();
@@ -530,10 +535,18 @@ void main(){
         else if(cmd=="local_stop"){pendingExitNormal=false;pendingRobotLimit=nullptr;startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();network->requestStop(true);}
         else if(cmd=="local_reconnect")network->requestReconnect();
         else if(cmd=="local_settings")openSettings();
+        else if(cmd=="local_exit_headset"){
+            if(exitUnconfirmed){
+                startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();pendingRobotLimit=nullptr;network->requestStop();
+                JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);jclass cls=env->GetObjectClass(app->activity->clazz);
+                env->CallVoidMethod(app->activity->clazz,env->GetMethodID(cls,"closeVrStudio","()V"));env->DeleteLocalRef(cls);
+            }
+        }
         else if(cmd=="local_exit_normal"){
+            if(pendingExitNormal||waitingExitNormal)return;
             startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();pendingRobotLimit=nullptr;
-            pendingExitNormal=true;exitStopAck=network->stopAcknowledged;exitDeadline=milliseconds()+5000;
-            network->requestStop();inputMessage="Stopping before returning NAO to normal";inputMessageUntil=exitDeadline;
+            exitUnconfirmed=false;pendingExitNormal=true;exitStopAck=network->stopAcknowledged;exitDeadline=milliseconds()+5000;
+            network->requestStop();inputMessage="Stopping before closing TeleNao";inputMessageUntil=exitDeadline;
         }
         else if(cmd=="local_robot_limit"){
             startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();limitStopAck=network->stopAcknowledged;
@@ -753,14 +766,26 @@ void main(){
             }
         }
         if(pendingExitNormal){
-            auto d=network->snapshot();
-            if(!network->connected||milliseconds()>exitDeadline){pendingExitNormal=false;inputMessage="Exit cancelled / STOP was not confirmed";inputMessageUntil=milliseconds()+5000;}
-            else if(network->stopAcknowledged>exitStopAck&&!network->armed&&milliseconds()-network->lastSnapshot<750&&!d.value("stopping",true)&&d.value("stop_error",std::string()).empty()){
+            auto decision=exit_flow::evaluate(network->connected,network->generation>0,network->armed,
+                network->stopAcknowledged,exitStopAck,milliseconds(),exitDeadline,milliseconds()-network->lastSnapshot,network->snapshot());
+            if(decision==exit_flow::Decision::OfferLocalClose){pendingExitNormal=false;exitUnconfirmed=true;menuOpen=true;
+                inputMessage="STOP not confirmed: choose Close VR studio only or retry Exit";inputMessageUntil=milliseconds()+10000;}
+            else if(decision==exit_flow::Decision::CloseLocal||decision==exit_flow::Decision::RestoreNormal){
                 pendingExitNormal=false;
+                waitingExitNormal=decision==exit_flow::Decision::RestoreNormal;
                 JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);
                 jclass cls=env->GetObjectClass(app->activity->clazz);
-                env->CallVoidMethod(app->activity->clazz,env->GetMethodID(cls,"exitTeleoperation","()V"));env->DeleteLocalRef(cls);
+                const char* method=waitingExitNormal?"exitTeleoperation":"closeVrStudio";
+                env->CallVoidMethod(app->activity->clazz,env->GetMethodID(cls,method,"()V"));env->DeleteLocalRef(cls);
             }
+        }
+        if(waitingExitNormal||milliseconds()-exitFailurePoll>250){
+            exitFailurePoll=milliseconds();
+            JNIEnv* env=nullptr;app->activity->vm->AttachCurrentThread(&env,nullptr);jclass cls=env->GetObjectClass(app->activity->clazz);
+            bool failed=env->CallBooleanMethod(app->activity->clazz,env->GetMethodID(cls,"takeExitFailure","()Z"));env->DeleteLocalRef(cls);
+            if(failed){waitingExitNormal=false;exitUnconfirmed=true;menuOpen=true;
+                startFlow.cancel();pendingGesture.cancel();nativeAction.cancel();pendingRobotLimit=nullptr;network->requestStop();
+                inputMessage="Service exit not confirmed: choose Close VR studio only or retry Exit";inputMessageUntil=milliseconds()+10000;}
         }
         auto startConditions=startInput(tracked);
         auto startAction=startFlow.tick(milliseconds()/1000.,startConditions);
@@ -799,7 +824,7 @@ void main(){
             wristNeutral[1]=mul(inverse(joints[XR_BODY_JOINT_RIGHT_ARM_LOWER_FB].pose.orientation),joints[XR_BODY_JOINT_RIGHT_HAND_WRIST_FB].pose.orientation);}
         if(startAction==StartFlow::Arm)network->requestArm(startFlow.expectedStop());
         wasX=x;wasA=a;wasB=b;
-        PoseCommand pose;pose.sampled=milliseconds();pose.active=tracked&&calibrated&&!menuOpen&&!layoutEditing&&app->activityState==APP_CMD_RESUME;
+        PoseCommand pose;pose.sampled=milliseconds();pose.active=tracked&&calibrated&&!pendingExitNormal&&!waitingExitNormal&&!menuOpen&&!layoutEditing&&app->activityState==APP_CMD_RESUME;
         pose.pauseReason=app->activityState!=APP_CMD_RESUME||!focused?"focus":menuOpen?"controls":!calibrated?"calibration":!tracked?"tracking":"";
         if(tracked&&calibrated){auto forward=rotate(mul(inverse(neutral),head.pose.orientation),{0,0,-1});pose.angles[0]=std::atan2(-forward.x,-forward.z);pose.angles[1]=std::asin(bounded(-forward.y,-1,1));
             auto headUp=rotate(mul(inverse(neutral),head.pose.orientation),{0,1,0});float headRoll=std::atan2(headUp.x,headUp.y);
