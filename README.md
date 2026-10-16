@@ -8,17 +8,17 @@ Standalone NAO app with Android application ID `it.telenao.quest`, private setti
 
 ## Download
 
-Experimental release **0.1.25-nao-test**. Use with an attentive operator and space around the robot.
+Experimental release **0.1.26-nao-test**. Use with an attentive operator and space around the robot.
 
 | Package | Download |
 |---|---|
-| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.25-nao-test/TeleNao-Quest.apk) |
+| Quest app | [TeleNao-Quest.apk](https://github.com/daxx2k/nao-tele/releases/download/v0.1.26-nao-test/TeleNao-Quest.apk) |
 | APK, installer and instructions | [Installation bundle](https://github.com/daxx2k/nao-tele/releases) |
 | Source bundle and checksums | [Release assets](https://github.com/daxx2k/nao-tele/releases) |
 
 ## Arm mapping and appearance
 
-Version **0.1.25-nao-test** includes the arm solver with full shoulder quadrants and live NAO joint limits. Arm elevation uses OpenXR gravity and shoulder heading instead of the estimated hip-to-spine tilt. The operator confirmed that forward arm alignment is now correct on the tested NAO. This does not confirm every pose or another NAO generation. Speed caps, walking, posture checks, STOP and gradual engagement are unchanged.
+Version **0.1.26-nao-test** includes the arm solver with full shoulder quadrants and live NAO joint limits. Arm elevation uses OpenXR gravity and shoulder heading instead of the estimated hip-to-spine tilt. The operator confirmed that forward arm alignment is now correct on the tested NAO. This does not confirm every pose or another NAO generation. Speed caps, walking, posture checks, STOP and gradual engagement are unchanged.
 
 Select LEDs directly on the illustrated body: eyes, either ear, the top of the head, torso or either foot. Corner marks show the selected lights; choose a colour or intensity from the swatches below. Ears support blue brightness and the head supports white brightness. Text selector buttons are removed.
 
@@ -73,3 +73,7 @@ Run `python tools/privacy_check.py --apks` before publication. See [Security](SE
 Experimental port: builds, regressions, audible voice confirmation and disarmed camera/network checks do not establish physical tracking accuracy or gait stability. See [Validation](docs/VALIDATION.md). V5/V6 physical validation remains pending.
 
 Apache-2.0, retaining upstream and third-party notices. Robot firmware and SDK components retain their own licences.
+
+## External power
+
+A blue plug next to the battery shows the robot-reported external power connection. Charging and connection remain separate; missing or stale telemetry never lights the indicator.
