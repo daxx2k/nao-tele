@@ -16,3 +16,8 @@ Physical preset, gait, STOP and tracking validation must be supervised.
 Motion includes a saved **Response: Smooth / Balanced / Quick** setting. It changes the acceleration of walking and rotation, not the 50% command cap or upper-body tracking. Balanced is the default. Centred sticks and STOP still stop promptly through native stopMove. On the right stick, the dominant axis selects turning or continuous height; small vertical deviations during a turn do not trigger crouching.
 
 The bottom grab handle and pin are always visible. A walking request while lowered first restores standing height and waits for torso sensor confirmation before any gait command.
+
+
+## Appearance
+
+Point and click directly on the body illustration to select eyes, ears, the top of the head, torso or feet, then choose a swatch below. Corner marks identify the selection. Both ears select the same ear LED group, and both feet select the same foot group. Ears change blue brightness; the head changes white brightness. Eyes, chest and feet support RGB colours. Selecting a body part alone does not send a colour command or move the robot.

@@ -423,6 +423,7 @@ void main(){
     struct Card {float x,y,w,h;};
     Card menuRect(int index,const std::vector<MenuItem>& items){
         auto command=items[index].action.value("cmd",std::string());
+        if(command=="local_led_target"){auto r=nao_led_avatar::selection(items[index].action.value("target",0))[0];return {r.x,r.y,r.w,r.h};}
         if(command=="local_drive_response"){auto r=dashboard_layout::motionResponse;return {r.x,r.y,r.w,r.h};}
         if(command.find("local_layout")==0){if(command=="local_layout"){auto r=dashboard_layout::headerLayout;return layoutEditing?Card{814,6,48,48}:Card{r.x,r.y,r.w,r.h};}if(command=="local_layout_slot")return {876,14,100,32};if(command=="local_layout_save")return {982,14,80,32};if(command=="local_layout_load")return {1068,14,80,32};return {1154,14,92,32};}
         if(command=="local_help"){auto r=dashboard_layout::headerHelp;return {r.x,r.y,r.w,r.h};}
@@ -558,6 +559,8 @@ void main(){
 
         auto items=menuActions();
         if(layoutEditing){for(int i=0;i<(int)items.size();++i){auto c=items[i].action.value("cmd",std::string());if(c.find("local_layout")!=0&&c!="local_help")continue;auto r=menuRect(i,items);if(x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h)return i;}return -1;}
+        int target=nao_led_avatar::targetAt(x,y);
+        if(target>=0)for(int i=0;i<int(items.size());++i)if(items[i].action.value("cmd",std::string())=="local_led_target"&&items[i].action.value("target",-1)==target)return i;
         // Keep the small clear control clickable inside the map toggle target.
         for(int i=0;i<(int)items.size();++i)if(items[i].action.value("cmd",std::string())=="local_map_clear"){auto r=menuRect(i,items);if(x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h)return i;}
         const auto playing=network->snapshot().value("gesture",std::string());
@@ -944,22 +947,27 @@ void main(){
         const char* uniforms[]={"avatarEyes","avatarChest","avatarEars","avatarHead","avatarFeet"};
         glUseProgram(program);for(int i=0;i<5;++i)glUniform3fv(glGetUniformLocation(program,uniforms[i]),1,colours[i].data());
         // Same approved image: tighter crops and full available artwork height.
-        const std::array<std::array<float,4>,3> crops{{{{.286f,.008f,.713f,.211f}},{{.125f,.210f,.875f,.395f}},{{.143f,.827f,.883f,.965f}}}};
         for(int i=0;i<3;++i){
-            float left=card.x+i*card.w/3,zoneWidth=card.w/3;
+            float left=card.x+i*card.w/3;
             if(i)pixelLine(left,card.y+8,left,card.y+89,1,palette.border[0],palette.border[1],palette.border[2]);
-            const auto uv=crops[i];auto box=dashboard_layout::contain({left+6,card.y+3,zoneWidth-12,91},int((uv[2]-uv[0])*nao_led_avatar::width),int((uv[3]-uv[1])*nao_led_avatar::height));
+            const auto uv=nao_led_avatar::crops[i];auto box=nao_led_avatar::imageBox(i);
             float x=box.x,y=box.y,w=box.w,h=box.h;glBindTexture(GL_TEXTURE_2D,avatarTexture);
             vertices({2*x/W-1,1-2*(y+h)/H,uv[0],uv[3],2*(x+w)/W-1,1-2*(y+h)/H,uv[2],uv[3],2*(x+w)/W-1,1-2*y/H,uv[2],uv[1],2*x/W-1,1-2*(y+h)/H,uv[0],uv[3],2*(x+w)/W-1,1-2*y/H,uv[2],uv[1],2*x/W-1,1-2*y/H,uv[0],uv[1]},6);
 
         }
         pixelLine(card.x+8,card.y+95,card.x+card.w-8,card.y+95,1,palette.border[0],palette.border[1],palette.border[2]);
         const char* targets[]={"Eyes","Chest","Ears","Head","Feet"};
-        for(int i=0;i<5;++i){auto r=dashboard_layout::button(6,i,12);bool active=ledTarget==i;
-            themedPanel(r.x,r.y,r.w,r.h,active?palette.selected:hover==i?palette.border:palette.button,16);
-            const auto c=active?dashboard_theme::rgb(0xffffff):palette.primary;
-            centeredText(targets[i],{r.x,r.y,r.w,r.h},c[0],c[1],c[2],ui_type::body);
+        for(int target=0;target<5;++target)if(target==ledTarget||target==hover){
+            auto c=target==ledTarget?dashboard_theme::accent:palette.secondary;
+            for(auto r:nao_led_avatar::selection(target))if(r.w>0){
+                const float n=5,stroke=target==ledTarget?2.f:1.f;
+                for(float x:{r.x,r.x+r.w})for(float y:{r.y,r.y+r.h}){
+                    pixelLine(x,y,x+(x==r.x?n:-n),y,stroke,c[0],c[1],c[2]);
+                    pixelLine(x,y,x,y+(y==r.y?n:-n),stroke,c[0],c[1],c[2]);
+                }
+            }
         }
+        centeredText(std::string(targets[ledTarget])+((ledTarget==2||ledTarget==3)?" / choose brightness":" / choose a colour"),{card.x+12,card.y+99,412,32},palette.primary[0],palette.primary[1],palette.primary[2],ui_type::body);
         const float levels[]={0,.15f,.30f,.50f,.70f,.85f,1};
         for(int i=0;i<7;++i){auto r=dashboard_layout::button(6,i+5,12);float cx=r.x+r.w*.5f,cy=r.y+r.h*.5f,d=28;
             bool active=ledSwatches[ledTarget]==i;
@@ -1037,7 +1045,10 @@ void main(){
         }
         int appearanceHover=-1;
         if(menuOpen){auto actions=menuActions();if(menuIndex>=0&&menuIndex<int(actions.size())&&menuGroup(actions[menuIndex])==6){auto action=actions[menuIndex].action;appearanceHover=action.value("cmd",std::string())=="local_led_target"?action.value("target",0):5+action.value("swatch",0);}}
-        if(pointerGrip.held&&pointerValid&&!pointerOnHelp)for(int i=0;i<12;++i){auto r=dashboard_layout::button(6,i,12);if(pointer.x>=r.x&&pointer.x<r.x+r.w&&pointer.y>=r.y&&pointer.y<r.y+r.h)appearanceHover=i;}
+        if(pointerGrip.held&&pointerValid&&!pointerOnHelp){
+            appearanceHover=nao_led_avatar::targetAt(pointer.x,pointer.y);
+            if(appearanceHover<0)for(int i=5;i<12;++i){auto r=dashboard_layout::button(6,i,12);if(pointer.x>=r.x&&pointer.x<r.x+r.w&&pointer.y>=r.y&&pointer.y<r.y+r.h)appearanceHover=i;}
+        }
         drawNaoLeds(appearanceHover);
         drawComparison(tracking);
         const auto thermal=dashboard_layout::temperatures;surfaceCard(thermal.x,thermal.y,thermal.w,thermal.h);text("Joint temperatures",thermal.x+23,thermal.y+7,.85f,.88f,.93f,ui_type::heading);
