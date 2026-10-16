@@ -44,10 +44,11 @@ except AttributeError:
 NAMES = ['HeadYaw', 'HeadPitch', 'LShoulderPitch', 'LShoulderRoll',
          'LElbowYaw', 'LElbowRoll', 'LWristYaw', 'RShoulderPitch',
          'RShoulderRoll', 'RElbowYaw', 'RElbowRoll', 'RWristYaw', 'LHand', 'RHand']
-# Conservative envelopes, intersected with the robot's own limits at startup.
-LIMITS = [(-1.0, 1.0), (-.68, .43), (-2.05, 2.05), (.05, 1.48),
-          (-1.8, 1.8), (-1.5, -.05), (-1.7, 1.7), (-2.05, 2.05),
-          (-1.48, -.05), (-1.8, 1.8), (.05, 1.5), (-1.7, 1.7), (0, 1), (0, 1)]
+# Head envelope retained; arm defaults are native NAO H25 bounds.
+# Connected arm position bounds come directly from ALMotion.getLimits().
+LIMITS = [(-1.0, 1.0), (-.68, .43), (-2.0857, 2.0857), (-.3142, 1.3265),
+          (-2.0857, 2.0857), (-1.5446, -.0349), (-1.8238, 1.8238), (-2.0857, 2.0857),
+          (-1.3265, .3142), (-2.0857, 2.0857), (.0349, 1.5446), (-1.8238, 1.8238), (0, 1), (0, 1)]
 # Normalized joystick command cap on translation and rotation.
 BASE_TEST_CAP = .50
 DRIVE_RESPONSE_ACCEL = ((.35,.40),(.70,.80),(1.05,1.20))
@@ -190,7 +191,7 @@ class Robot(object):
         for i, name in enumerate(NAMES):
             limits = self.motion.getLimits(name)[0]
             self.hardware_limits[i]=tuple(limits[:2]);self.hardware_max_speed[i]=float(limits[2])
-            self.limits[i] = (max(LIMITS[i][0], limits[0]), min(LIMITS[i][1], limits[1]))
+            self.limits[i] = tuple(limits[:2]) if 2<=i<12 else (max(LIMITS[i][0], limits[0]), min(LIMITS[i][1], limits[1]))
             self.hardware_speed[i] = float(limits[2])*(.25 if i<2 else .6 if i>=12 else .5)
 
         from nao_speech_player import SpeechPlayerNao
@@ -245,7 +246,7 @@ class Robot(object):
         if key=='base':self.set_base_collision(enabled)
         elif key=='range':
             self.range_limited=enabled
-            self.limits=[(max(LIMITS[i][0],p[0]),min(LIMITS[i][1],p[1])) if enabled else tuple(p) for i,p in enumerate(self.hardware_limits)]
+            self.limits=[(max(LIMITS[i][0],p[0]),min(LIMITS[i][1],p[1])) if enabled and not 2<=i<12 else tuple(p) for i,p in enumerate(self.hardware_limits)]
         elif key=='speed':
             self.speed_limited=enabled
             self.hardware_speed=[v*(.25 if i<2 else .6 if i>=12 else .5) for i,v in enumerate(self.hardware_max_speed)]

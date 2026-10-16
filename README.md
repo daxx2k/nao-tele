@@ -16,6 +16,12 @@ Experimental release **0.1.22-nao-test**. Use with an attentive operator and spa
 | APK, installer and instructions | [Installation bundle](https://github.com/daxx2k/nao-tele/releases) |
 | Source bundle and checksums | [Release assets](https://github.com/daxx2k/nao-tele/releases) |
 
+## Arm mapping update in preparation
+
+Version **0.1.23-nao-test** ports the arm-mapping correction verified by the operator on TelePepper. The shoulder solver preserves elevation beyond vertical and uses live NAO joint bounds, including mirrored poses. Application-added arm position envelopes are removed; native NAO geometry, joint bounds and collision handling remain. Existing speed caps, walking controls, posture checks, STOP and gradual engagement are unchanged.
+
+This NAO update has automated and Quest-native geometry coverage; physical arm-tracking validation on NAO is still pending. The download above remains the latest published release until that trial.
+
 ## Compatibility
 
 Targets **NAO H25 v4, v5 and v6**, using the native Python qi/Pillow environment on NAOqi **2.1 through 2.8**. CONNECT tries the robot's available Python interpreters and preserves its SDK environment variables. There is no v4-only restriction.

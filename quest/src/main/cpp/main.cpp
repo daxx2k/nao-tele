@@ -21,6 +21,7 @@
 #include <meta_body_tracking_fidelity.h>
 #include "network.h"
 #include "arm_kinematics.h"
+#include "arm_limits.h"
 #include "drive_input.h"
 #include "laser_map.h"
 #include "start_flow.h"
@@ -641,11 +642,13 @@ void main(){
             wrist=goal.wrist;elbowWeight=goal.elbowWeight;faceBlend[side]=goal.blend;
         }
         goalHeight[side]=wrist.z;
-        auto seed=nao_arm::directionSeed(upper,fore,left);
-        auto solution=elbowWeight<.99f?nao_arm::solveFace(wrist,elbow,left,seed,elbowWeight):nao_arm::solve(wrist,elbow,left,seed,elbowWeight);
+        auto armStatus=network->snapshot();
+        auto armLimits=poseMirror?nao_arm::mirroredLimits(nao_arm::liveLimits(armStatus,!left)):nao_arm::liveLimits(armStatus,left);
+        auto seed=nao_arm::directionSeed(upper,fore,left,armLimits);
+        auto solution=elbowWeight<.99f?nao_arm::solveFace(wrist,elbow,left,seed,elbowWeight,armLimits):nao_arm::solve(wrist,elbow,left,seed,elbowWeight,armLimits);
         if(armSolutionValid[side]){
-            auto continuous=nao_arm::solve(wrist,elbow,left,armPrevious[side],elbowWeight);
-            if(nao_arm::cost(continuous,left,wrist,elbow,elbowWeight)<=nao_arm::cost(solution,left,wrist,elbow,elbowWeight)+.000025f)solution=continuous;
+            auto continuous=nao_arm::solve(wrist,elbow,left,armPrevious[side],elbowWeight,armLimits);
+            if(nao_arm::cost(continuous,left,wrist,elbow,elbowWeight)<=nao_arm::cost(solution,left,wrist,elbow,elbowWeight)+.00000001f)solution=continuous;
         }
         armPrevious[side]=solution;armSolutionValid[side]=true;
         armError[side]=nao_arm::length(nao_arm::sub(nao_arm::forward(solution,left).wrist,wrist));
