@@ -28,7 +28,7 @@ Select LEDs directly on the illustrated body: eyes, either ear, the top of the h
 
 With **Listen: ON**, the Quest keeps playing the robot microphone feed while Piper speaks. Listen starts off, and live push-to-talk still mutes the return to reduce feedback.
 
-The private Meta Beta uses the new text-free Soft 3D app icon. For reproducible signed builds, see [Meta Beta build instructions](docs/META-BETA.md). Public APK downloads below remain the last published GitHub release.
+The apps use coordinated, realistic robot portraits: coral-peach for TelePepper and teal-lilac for TeleNao. For reproducible signed private builds, see [Meta Beta build instructions](docs/META-BETA.md).
 
 ## Compatibility
 
