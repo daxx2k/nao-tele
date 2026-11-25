@@ -27,3 +27,6 @@ dependencies {
     implementation 'org.khronos.openxr:openxr_loader_for_android:1.1.54'
     implementation 'com.github.mwiede:jsch:0.1.72'
 }
+
+// Opt-in, signed Meta distribution builds; sideloaded debug builds keep their settings.
+apply from: rootProject.file("tools/meta-beta.gradle")

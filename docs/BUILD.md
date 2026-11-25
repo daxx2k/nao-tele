@@ -19,3 +19,7 @@ python tools/privacy_check.py
 ```
 
 The installer detects an existing robot Python interpreter with qi and Pillow, for NAOqi 2.1-2.8. Do not install PC developer dependencies on the robot or upgrade firmware. Native tests are separate from the Python suite. Physical movement requires supervised validation on each robot; v5/v6 have not yet been physically verified.
+
+## Private Meta distribution
+
+See [META-BETA.md](META-BETA.md) for the optional signed Beta profile and signing-key requirements.

@@ -1,5 +1,7 @@
 # TeleNao
 
+<img src="docs/assets/telenao-icon.png" alt="TeleNao app icon" width="160" />
+
 [![Buy me a coffee](https://img.shields.io/badge/Buy_me_a_coffee-Support_my_projects-FFDD00?logo=buymeacoffee&logoColor=000000)](https://buymeacoffee.com/daxx2k)
 
 Control a NAO humanoid from Meta Quest: mirror your head, arms and hands, see through its two cameras, walk with the controllers, and speak through the robot. TeleNao also offers a desktop operator console for speech, LEDs and native posture presets.
@@ -25,6 +27,8 @@ Version **0.1.26-nao-test** includes the arm solver with full shoulder quadrants
 Select LEDs directly on the illustrated body: eyes, either ear, the top of the head, torso or either foot. Corner marks show the selected lights; choose a colour or intensity from the swatches below. Ears support blue brightness and the head supports white brightness. Text selector buttons are removed.
 
 With **Listen: ON**, the Quest keeps playing the robot microphone feed while Piper speaks. Listen starts off, and live push-to-talk still mutes the return to reduce feedback.
+
+The private Meta Beta uses the new text-free Soft 3D app icon. For reproducible signed builds, see [Meta Beta build instructions](docs/META-BETA.md). Public APK downloads below remain the last published GitHub release.
 
 ## Compatibility
 
